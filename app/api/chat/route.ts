@@ -42,7 +42,7 @@ export async function POST(req: Request) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama3-8b-8192', // Fast, free-tier friendly model
+        model: 'llama-3.1-8b-instant', // Fast, free-tier friendly model
         messages: apiMessages,
         temperature: 0.7,
         max_tokens: 250, // Keep responses relatively brief for voice

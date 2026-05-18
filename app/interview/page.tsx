@@ -15,12 +15,23 @@ export default function InterviewSession() {
   
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   
   const [transcript, setTranscript] = useState("");
   
   const transcriptRef = useRef("");
   const messagesRef = useRef<Message[]>([]);
   const recognitionRef = useRef<any>(null);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause();
+        currentAudioRef.current.currentTime = 0;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     transcriptRef.current = transcript;
@@ -64,9 +75,11 @@ export default function InterviewSession() {
   const startInterview = () => {
     setHasStarted(true);
     setMessages([{ role: 'assistant', content: currentQuestion }]);
+    playAudio(currentQuestion);
   };
 
   const toggleListen = () => {
+    if (isSpeaking) return; // Prevent listening while AI is talking
     if (isListening) {
       recognitionRef.current?.stop();
       setIsListening(false);
@@ -101,12 +114,54 @@ export default function InterviewSession() {
 
       setMessages(prev => [...prev, { role: 'assistant', content: aiReply }]);
       setCurrentQuestion(aiReply);
+      playAudio(aiReply);
       
     } catch (error) {
       console.error("Error fetching AI response:", error);
       setCurrentQuestion("Sorry, I had trouble processing that. Please check if your API key is in the .env.local file and restart the server.");
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const playAudio = async (text: string) => {
+    setIsSpeaking(true);
+    try {
+      const response = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+
+      if (!response.ok) {
+        console.error("Failed to generate speech");
+        setIsSpeaking(false);
+        return;
+      }
+
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      
+      // Stop previous audio if still playing
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause();
+        currentAudioRef.current.currentTime = 0;
+      }
+      currentAudioRef.current = audio;
+      
+      audio.onended = () => {
+        setIsSpeaking(false);
+        URL.revokeObjectURL(audioUrl);
+        if (currentAudioRef.current === audio) {
+          currentAudioRef.current = null;
+        }
+      };
+
+      await audio.play();
+    } catch (error) {
+      console.error("Error playing audio:", error);
+      setIsSpeaking(false);
     }
   };
 
@@ -155,12 +210,12 @@ export default function InterviewSession() {
                       alt="Aria" 
                       className="w-full h-full object-cover"
                     />
-                    {isProcessing && (
+                    {(isProcessing || isSpeaking) && (
                       <div className="absolute inset-0 bg-cyan-400/20 mix-blend-overlay animate-pulse"></div>
                     )}
                   </div>
                 </div>
-                <div className={`absolute -bottom-1 -right-1 w-4 h-4 border-2 border-background rounded-full transition-colors ${isProcessing ? 'bg-cyan-400' : 'bg-emerald-500'}`}></div>
+                <div className={`absolute -bottom-1 -right-1 w-4 h-4 border-2 border-background rounded-full transition-colors ${isSpeaking ? 'bg-cyan-400 animate-pulse' : isProcessing ? 'bg-yellow-400' : 'bg-emerald-500'}`}></div>
               </div>
               <div className="text-sm font-medium text-zinc-300">Aria - Senior Tech Lead</div>
             </div>
@@ -192,18 +247,18 @@ export default function InterviewSession() {
                   </>
                 ) : (
                   <div className="text-zinc-600 text-xs tracking-widest uppercase font-bold">
-                    {isProcessing ? 'Processing your answer...' : 'Ready'}
+                    {isProcessing ? 'Processing your answer...' : isSpeaking ? 'Aria is speaking...' : 'Ready'}
                   </div>
                 )}
               </div>
 
               <button 
                 onClick={toggleListen}
-                disabled={isProcessing}
+                disabled={isProcessing || isSpeaking}
                 className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 ${
                   isListening 
                     ? 'bg-red-500 text-white shadow-[0_0_40px_rgba(239,68,68,0.4)] hover:scale-105' 
-                    : isProcessing
+                    : (isProcessing || isSpeaking)
                       ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
                       : 'bg-cyan-400 text-cyan-950 shadow-[0_0_40px_rgba(0,229,255,0.4)] hover:scale-105 animate-[pulse_2s_ease-in-out_infinite]'
                 }`}
