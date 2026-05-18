@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 const ROLES = [
   {
@@ -33,11 +34,32 @@ const ROLES = [
     title: "Product Manager",
     icon: "account_tree",
     description: "Roadmapping, stakeholder management, and product-market fit."
+  },
+  {
+    id: "Designer",
+    title: "UI/UX Designer",
+    icon: "brush",
+    description: "User research, wireframing, prototyping, and visual design principles."
   }
 ];
 
 export default function RoleSelection() {
   const [selectedRole, setSelectedRole] = useState("Frontend Developer");
+  const router = useRouter();
+
+  const handleStart = () => {
+    try {
+      const existingContextStr = localStorage.getItem('interview_context');
+      const context = existingContextStr ? JSON.parse(existingContextStr) : {};
+      context.role = selectedRole;
+      localStorage.setItem('interview_context', JSON.stringify(context));
+    } catch (e) {
+      console.error(e);
+      // Fallback if no existing context
+      localStorage.setItem('interview_context', JSON.stringify({ role: selectedRole }));
+    }
+    router.push('/interview');
+  };
 
   return (
     <div className="max-w-5xl mx-auto px-8 py-12 pb-32">
@@ -125,9 +147,12 @@ export default function RoleSelection() {
           <h3 className="text-xl font-bold mb-1">{selectedRole} Selected</h3>
           <p className="text-sm text-zinc-400">Estimated session duration: 25 minutes</p>
         </div>
-        <Link href="/interview" className="w-full sm:w-auto bg-cyan-400 hover:bg-cyan-300 text-cyan-950 font-bold py-4 px-8 rounded-xl transition-colors shadow-[0_0_20px_rgba(0,229,255,0.3)] block text-center">
+        <button 
+          onClick={handleStart}
+          className="w-full sm:w-auto bg-cyan-400 hover:bg-cyan-300 text-cyan-950 font-bold py-4 px-8 rounded-xl transition-colors shadow-[0_0_20px_rgba(0,229,255,0.3)] block text-center"
+        >
           Start Interview Session
-        </Link>
+        </button>
       </div>
     </div>
   );

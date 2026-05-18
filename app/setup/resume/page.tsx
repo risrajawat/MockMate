@@ -2,11 +2,23 @@
 
 import { useState, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function ResumeUpload() {
   const [file, setFile] = useState<File | null>(null);
   const [status, setStatus] = useState<'idle' | 'parsing' | 'complete'>('idle');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+
+  const handleContinue = () => {
+    // Save mock extraction results
+    const mockContext = {
+      skills: ["React", "Node.js", "TypeScript", "AWS"],
+      experience: "4+ years"
+    };
+    localStorage.setItem('interview_context', JSON.stringify(mockContext));
+    router.push('/setup/role');
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -187,10 +199,13 @@ export default function ResumeUpload() {
               <p className="text-sm text-zinc-400 mb-8 max-w-sm">
                 We've tailored your interview path based on your uploaded resume.
               </p>
-              <Link href="/setup/role" className="w-full bg-cyan-400 hover:bg-cyan-300 text-cyan-950 font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-[0_0_20px_rgba(0,229,255,0.2)]">
+              <button 
+                onClick={handleContinue}
+                className="w-full bg-cyan-400 hover:bg-cyan-300 text-cyan-950 font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-[0_0_20px_rgba(0,229,255,0.2)]"
+              >
                 Continue to Role Selection
                 <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
-              </Link>
+              </button>
             </div>
           </div>
         </div>

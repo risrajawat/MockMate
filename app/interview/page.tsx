@@ -18,6 +18,7 @@ export default function InterviewSession() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   
   const [transcript, setTranscript] = useState("");
+  const [context, setContext] = useState<any>(null);
   
   const transcriptRef = useRef("");
   const messagesRef = useRef<Message[]>([]);
@@ -31,6 +32,26 @@ export default function InterviewSession() {
         currentAudioRef.current.currentTime = 0;
       }
     };
+  }, []);
+
+  useEffect(() => {
+    try {
+      const savedContext = localStorage.getItem('interview_context');
+      if (savedContext) {
+        const parsed = JSON.parse(savedContext);
+        setContext(parsed);
+        if (parsed.role) {
+          const isNonTech = parsed.role.toLowerCase().includes("design") || 
+                            parsed.role.toLowerCase().includes("hr") || 
+                            parsed.role.toLowerCase().includes("product") || 
+                            parsed.role.toLowerCase().includes("other");
+          const interviewerType = isNonTech ? "interviewer" : "technical interviewer";
+          setCurrentQuestion(`Hello! I'm Aria, your ${interviewerType} today. I see you're applying for the ${parsed.role} position. To get us started, could you please introduce yourself and tell me a bit about your background?`);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load interview context", e);
+    }
   }, []);
 
   useEffect(() => {
@@ -102,7 +123,7 @@ export default function InterviewSession() {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages }),
+        body: JSON.stringify({ messages: newMessages, context }),
       });
 
       if (!response.ok) {
@@ -217,7 +238,7 @@ export default function InterviewSession() {
                 </div>
                 <div className={`absolute -bottom-1 -right-1 w-4 h-4 border-2 border-background rounded-full transition-colors ${isSpeaking ? 'bg-cyan-400 animate-pulse' : isProcessing ? 'bg-yellow-400' : 'bg-emerald-500'}`}></div>
               </div>
-              <div className="text-sm font-medium text-zinc-300">Aria - Senior Tech Lead</div>
+              <div className="text-sm font-medium text-zinc-300">Aria - Senior Interviewer</div>
             </div>
 
             <div className="w-full bg-zinc-900/40 border border-cyan-500/20 rounded-2xl p-8 mb-16 shadow-[0_0_30px_rgba(0,229,255,0.05)] transition-all animate-[fadeIn_0.5s_ease-out]">

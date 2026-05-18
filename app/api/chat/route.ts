@@ -1,12 +1,42 @@
 import { NextResponse } from 'next/server';
 
-const SYSTEM_PROMPT = `
-You are an expert technical interviewer for Mockmate AI. 
-You are conducting a sequential interview for a software engineering candidate.
+const generateSystemPrompt = (context: any) => {
+  const role = context?.role || "software engineering";
+  
+  // Determine if it's a non-technical role to avoid asking DSA or coding questions
+  const isNonTech = role.toLowerCase().includes("design") || 
+                    role.toLowerCase().includes("hr") || 
+                    role.toLowerCase().includes("product") || 
+                    role.toLowerCase().includes("other");
+                    
+  const interviewerType = isNonTech ? "expert interviewer" : "expert technical interviewer";
+  
+  let skillsText = "";
+  if (context?.skills && context.skills.length > 0 && !isNonTech) {
+    skillsText = `The candidate has the following skills extracted from their resume: ${context.skills.join(", ")}.`;
+  } else if (!isNonTech) {
+    skillsText = "Assume the candidate has general software development skills.";
+  } else {
+    skillsText = `Assume the candidate has general skills relevant to a ${role}.`;
+  }
+  
+  const phase2Task = (context?.skills && context.skills.length > 0 && !isNonTech)
+    ? `Ask exactly ONE question about their experience with their listed skills (${context.skills.join(", ")}) or their past projects.`
+    : `Ask exactly ONE question about a past project they worked on relevant to the ${role} role.`;
+  
+  const phase3Task = isNonTech 
+    ? `Ask exactly ONE domain-specific scenario question relevant to a ${role}.`
+    : `Ask exactly ONE Data Structures and Algorithms (DSA) question.`;
+
+  return `
+You are an ${interviewerType} for Mockmate AI. 
+You are conducting a sequential interview for a ${role} candidate.
+${skillsText}
+
 You MUST follow this exact 3-phase sequence:
 1. PHASE 1: Introduce yourself and ask the candidate to give a brief introduction.
-2. PHASE 2: Ask exactly ONE question about a project from their resume.
-3. PHASE 3: Ask exactly ONE Data Structures and Algorithms (DSA) question.
+2. PHASE 2: ${phase2Task}
+3. PHASE 3: ${phase3Task}
 
 CRITICAL RULES:
 - Never ask multiple questions at once. Wait for the user to answer before moving to the next phase.
@@ -15,14 +45,17 @@ CRITICAL RULES:
 - If the user answers a question, briefly acknowledge their answer, then proceed to the next phase.
 - After Phase 3 is answered, conclude the interview and say "Thank you, the session is complete. You may end the session now."
 `;
+};
 
 export async function POST(req: Request) {
   try {
-    const { messages } = await req.json();
+    const { messages, context } = await req.json();
+
+    const dynamicPrompt = generateSystemPrompt(context);
 
     // Prepend the system prompt to the messages
     const apiMessages = [
-      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'system', content: dynamicPrompt },
       ...messages
     ];
 
