@@ -22,7 +22,7 @@ export default function InterviewSession() {
   
   const transcriptRef = useRef("");
   const messagesRef = useRef<Message[]>([]);
-  const recognitionRef = useRef<any>(null);
+  // const recognitionRef = useRef<any>(null); // Deprecated, using MediaRecorder
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
@@ -62,36 +62,55 @@ export default function InterviewSession() {
     messagesRef.current = messages;
   }, [messages]);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        recognitionRef.current = new SpeechRecognition();
-        recognitionRef.current.continuous = false; 
-        recognitionRef.current.interimResults = true;
-        
-        recognitionRef.current.onresult = (event: any) => {
-          let currentTranscript = '';
-          for (let i = event.resultIndex; i < event.results.length; ++i) {
-            currentTranscript += event.results[i][0].transcript;
-          }
-          setTranscript(currentTranscript);
-        };
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
-        recognitionRef.current.onerror = (event: any) => {
-          console.error("Speech recognition error", event.error);
-          setIsListening(false);
-        };
+  const startRecording = async () => {
+    if (isSpeaking) return; // avoid recording while AI speaking
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+      audioChunksRef.current = [];
 
-        recognitionRef.current.onend = () => {
-          setIsListening(false);
-          if (transcriptRef.current.trim()) {
-            handleUserSubmit(transcriptRef.current);
-          }
-        };
-      }
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      recorder.onstop = async () => {
+        setIsListening(false);
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const form = new FormData();
+        form.append('audio', blob, 'recording.webm');
+        const res = await fetch('/api/voice/transcribe', {
+          method: 'POST',
+          body: form,
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          console.error('Transcribe error', err);
+          setCurrentQuestion('Transcription failed. Please try again.');
+          return;
+        }
+        const data = await res.json();
+        const transcriptText = data.transcript ?? '';
+        setTranscript(transcriptText);
+        // Submit to chat flow
+        handleUserSubmit(transcriptText);
+      };
+
+      recorder.start();
+      setIsListening(true);
+    } catch (e) {
+      console.error('Microphone permission error', e);
+      setCurrentQuestion('Microphone permission denied.');
     }
-  }, []);
+  };
+
+  const stopRecording = () => {
+    mediaRecorderRef.current?.stop();
+  };
+
 
   const startInterview = () => {
     setHasStarted(true);
@@ -102,15 +121,11 @@ export default function InterviewSession() {
   const toggleListen = () => {
     if (isSpeaking) return; // Prevent listening while AI is talking
     if (isListening) {
-      recognitionRef.current?.stop();
-      setIsListening(false);
+      stopRecording();
     } else {
-      setTranscript("");
-      recognitionRef.current?.start();
-      setIsListening(true);
+      startRecording();
     }
   };
-
   const handleUserSubmit = async (finalText: string) => {
     if (!finalText.trim()) return;
 

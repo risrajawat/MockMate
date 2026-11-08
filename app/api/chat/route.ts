@@ -75,7 +75,7 @@ export async function POST(req: Request) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama-3.1-8b-instant', // Fast, free-tier friendly model
+        model: 'openai/gpt-oss-120b', // fallback model available in Groq account
         messages: apiMessages,
         temperature: 0.7,
         max_tokens: 250, // Keep responses relatively brief for voice
