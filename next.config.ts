@@ -1,13 +1,20 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Top‑level Turbopack configuration (required for Next 16)
-  // The `root` points to the project directory so Turbopack can locate the Next.js package.
+  // Top-level Turbopack configuration (required for Next 16)
   turbopack: {
     root: process.cwd(),
   },
-  // (any other existing config can be added here in the future)
+
+  // Allow external profile images from Google
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "lh3.googleusercontent.com",
+      },
+    ],
+  },
 };
 
 export default nextConfig;
-

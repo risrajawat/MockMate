@@ -1,6 +1,8 @@
+// app/layout.tsx
 import type { Metadata } from "next";
 import { Space_Grotesk, Inter } from "next/font/google";
 import "./globals.css";
+import { HeaderWrapper } from "../components/HeaderWrapper";
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-space-grotesk",
@@ -21,23 +23,12 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html
-      lang="en"
-      className={`dark ${spaceGrotesk.variable} ${inter.variable}`}
-    >
-      <head>
-        <link
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body
-        className="bg-background text-on-background font-body-md selection:bg-primary-container selection:text-on-primary-container"
-      >
+    <html lang="en" className={`dark ${spaceGrotesk.variable} ${inter.variable}`}>
+      <head />
+      <body className="bg-background text-on-background font-body-md selection:bg-primary-container selection:text-on-primary-container">
+        <HeaderWrapper />
         {children}
       </body>
     </html>
