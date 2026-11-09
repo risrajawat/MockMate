@@ -1,49 +1,64 @@
 import { NextResponse } from 'next/server';
 
+export const runtime = 'nodejs';
+
 export async function POST(req: Request) {
   try {
+    // Expect JSON body: { text }
     const { text } = await req.json();
-
     if (!text) {
       return NextResponse.json({ error: 'Text is required' }, { status: 400 });
     }
 
-    const apiKey = process.env.DEEPGRAM_API_KEY;
-    
+    const apiKey = process.env.GNANI_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
-        { error: 'API key is missing. Please add DEEPGRAM_API_KEY to your .env.local file.' },
+        { error: 'GNANI_API_KEY missing. Add it to .env.local' },
         { status: 500 }
       );
     }
 
-    const response = await fetch('https://api.deepgram.com/v1/speak?model=aura-asteria-en', {
+    const gnaniUrl = 'https://api.vachana.ai/api/v1/tts/inference';
+    const body = {
+      text,
+      model: 'timbre-v2.5',
+      voice: 'Nalini', // default voice; adjust if needed
+      language: 'en-IN',
+      speed: 1.0,
+      audio_config: {
+        sample_rate: 48000,
+        num_channels: 1,
+        sample_width: 2,
+        encoding: 'linear_pcm',
+        container: 'wav',
+      },
+    };
+
+    const gnaniRes = await fetch(gnaniUrl, {
       method: 'POST',
       headers: {
-        'Authorization': `Token ${apiKey}`,
+        'X-API-Key-ID': apiKey,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify(body),
     });
 
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error('Deepgram API Error:', errorData);
-      return NextResponse.json({ error: 'Failed to fetch from Deepgram API' }, { status: response.status });
+    if (!gnaniRes.ok) {
+      const errorText = await gnaniRes.text();
+      console.error('Gnani Timbre error:', errorText);
+      return NextResponse.json(
+        { error: 'Gnani Timbre failed', details: errorText },
+        { status: gnaniRes.status }
+      );
     }
 
-    // Return the binary audio data directly
-    const audioBuffer = await response.arrayBuffer();
-    
+    const audioBuffer = await gnaniRes.arrayBuffer();
     return new NextResponse(audioBuffer, {
       status: 200,
-      headers: {
-        'Content-Type': 'audio/mpeg',
-      },
+      headers: { 'Content-Type': 'audio/wav' },
     });
-
-  } catch (error) {
-    console.error('Error in TTS route:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  } catch (e) {
+    console.error('TTS route error:', e);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
