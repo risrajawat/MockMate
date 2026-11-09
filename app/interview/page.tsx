@@ -8,6 +8,7 @@ import {
   useMemo,
   useSyncExternalStore,
 } from "react";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -123,6 +124,36 @@ function getInitialQuestion(context: InterviewContext | null): string {
     : "technical interviewer";
 
   return `Hello! I'm Aria, your ${interviewerType} today. I see you're applying for the ${role} position. To get us started, could you please introduce yourself and tell me a bit about your background?`;
+}
+
+type IconName = "mic" | "stop" | "play" | "clock" | "message" | "check" | "spark" | "x" | "arrow" | "headphones";
+
+function UiIcon({ name, className = "" }: { name: IconName; className?: string }) {
+  const common = {
+    className,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.8,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    "aria-hidden": true as const,
+  };
+
+  const paths: Record<IconName, ReactNode> = {
+    mic: <><rect x="9" y="2.8" width="6" height="12" rx="3" /><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3.2M9 21.2h6" /></>,
+    stop: <><rect x="6" y="6" width="12" height="12" rx="2.5" /></>,
+    play: <><path d="m8 5 11 7-11 7V5Z" fill="currentColor" stroke="none" /></>,
+    clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.5 2" /></>,
+    message: <><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H5l1.7-3.1A7.5 7.5 0 1 1 20 11.5Z" /><path d="M8.5 11.5h7M8.5 14.5h4.5" /></>,
+    check: <><path d="m5 12.5 4.2 4.2L19 7" /></>,
+    spark: <><path d="m12 2 1.8 6.2L20 10l-6.2 1.8L12 18l-1.8-6.2L4 10l6.2-1.8L12 2Z" /><path d="m19 15 .8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z" /></>,
+    x: <><path d="m6 6 12 12M18 6 6 18" /></>,
+    arrow: <><path d="M5 12h14M13 6l6 6-6 6" /></>,
+    headphones: <><path d="M3.5 13v-1a8.5 8.5 0 0 1 17 0v1" /><path d="M3.5 13h3v6h-1a2 2 0 0 1-2-2v-4ZM20.5 13h-3v6h1a2 2 0 0 0 2-2v-4Z" /></>,
+  };
+
+  return <svg {...common}>{paths[name]}</svg>;
 }
 
 export default function InterviewSession() {
@@ -557,223 +588,256 @@ export default function InterviewSession() {
     }
   };
 
+  const roleLabel = context?.role?.trim() || "General Interview";
+  const statusLabel = isListening
+    ? "Listening to you"
+    : isTranscribing
+      ? "Transcribing your answer"
+      : isProcessing
+        ? "Aria is thinking"
+        : isSpeaking
+          ? "Aria is speaking"
+          : hasStarted
+            ? "Ready for your answer"
+            : "Ready when you are";
+
+  const isBusy = isSpeaking || isProcessing || isTranscribing;
+
   return (
-    <div className="min-h-screen flex flex-col bg-background text-on-background relative overflow-hidden">
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-cyan-900/10 blur-[100px] rounded-full pointer-events-none"></div>
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-[#080d12] text-white selection:bg-cyan-400/30">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_35%,rgba(0,190,220,0.09),transparent_42%)]" />
+      <div className="pointer-events-none absolute inset-0 opacity-[0.13] [background-image:linear-gradient(rgba(148,163,184,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.08)_1px,transparent_1px)] [background-size:64px_64px]" />
 
-      <header className="px-6 py-4 flex justify-between items-center border-b border-white/5 relative z-10 bg-background/80 backdrop-blur-md">
-        <div className="flex items-center gap-3">
-          <Link href="/" className="font-h1 font-bold text-cyan-400">
-            Mockmate AI
+      <header className="relative z-10 flex items-center justify-between border-b border-white/[0.07] bg-[#0b1118]/85 px-5 py-4 backdrop-blur-xl sm:px-8">
+        <div className="flex min-w-0 items-center gap-3">
+          <Link href="/" className="shrink-0 text-xl font-extrabold tracking-tight text-white sm:text-2xl">
+            Mock<span className="text-cyan-400">Mate</span>
           </Link>
-
-          <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></div>
-
-          <span className="text-[10px] tracking-widest text-zinc-500 uppercase font-semibold">
-            Interview Mode Active
-          </span>
+          <span className="hidden h-6 w-px bg-white/10 sm:block" />
+          <div className="hidden min-w-0 sm:block">
+            <p className="truncate text-xs font-semibold text-zinc-200">Interview room</p>
+            <p className="truncate text-[11px] text-zinc-500">{roleLabel}</p>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 bg-zinc-900 border border-white/10 px-3 py-1.5 rounded-full">
-          <span className="material-symbols-outlined text-[16px] text-cyan-400">
-            schedule
+        <div className="flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/[0.07] px-3 py-2">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-50" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
           </span>
-          <span className="text-sm font-mono font-bold text-zinc-300">
-            14:22
-          </span>
+          <span className="text-[11px] font-semibold tracking-wide text-emerald-300">{hasStarted ? "SESSION ACTIVE" : "READY TO START"}</span>
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col items-center justify-center p-6 relative z-10 max-w-4xl mx-auto w-full">
+      <main className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-8 sm:px-8 sm:py-10">
         {!hasStarted ? (
-          <div className="flex flex-col items-center justify-center text-center max-w-lg mx-auto">
-            <div className="w-24 h-24 rounded-full bg-cyan-400/10 flex items-center justify-center text-cyan-400 mb-8 shadow-[0_0_50px_rgba(0,229,255,0.2)]">
-              <span className="material-symbols-outlined text-[48px]">
-                record_voice_over
-              </span>
-            </div>
-
-            <h2 className="text-3xl font-bold mb-4">
-              Ready to start?
-            </h2>
-
-            <p className="text-zinc-400 mb-10">
-              Click the button below to begin your AI mock interview.
-              Aria will introduce herself and ask you the first question.
-            </p>
-
-            <button
-              type="button"
-              onClick={startInterview}
-              className="bg-cyan-400 hover:bg-cyan-300 text-cyan-950 font-bold py-4 px-10 rounded-xl transition-all hover:scale-105 shadow-[0_0_20px_rgba(0,229,255,0.4)] flex items-center gap-3"
-            >
-              <span className="material-symbols-outlined text-[24px]">
-                play_arrow
-              </span>
-              Start Interview Session
-            </button>
-          </div>
-        ) : (
-          <>
-            <div className="flex flex-col items-center mb-8 animate-[fadeIn_0.5s_ease-out]">
-              <div className="relative">
-                <div
-                  className={`w-20 h-20 rounded-full border-2 p-1 mb-3 transition-colors ${isProcessing
-                    ? "border-cyan-400"
-                    : "border-cyan-400/30"
-                    }`}
-                >
-                  <div className="w-full h-full rounded-full bg-zinc-800 overflow-hidden relative">
-                    <Image
-                      src="https://lh3.googleusercontent.com/aida-public/AB6AXuCXS5x7f-Y0FmdLICUQZLMQ5JM45r-mMZ0wWhUMe19cv2WWhJgw2oa10APLL2bDztn-wI0dGpd8Y-PPbANL6-3eqUjRYIcMw61H3rkaXy5OSkM2_hh-P7EOasE9LAHzuraBDyI-7GKxBqofnQJFGHRS5W8TNONSvG5PhTrJnZg7FY0oC-OgLQ4_qBJ-Dn6gaRK4PpvaPIC-Fn6LwEE2u4ba4fMCF82itmwqVk6TjZ39pc-aDqjCss_Agam_OTTUm96dKUWItZwD0BE"
-                      alt="Aria"
-                      width={40}
-                      height={40}
-                      className="w-full h-full object-cover"
-                    />
-
-                    {(isProcessing || isSpeaking) && (
-                      <div className="absolute inset-0 bg-cyan-400/20 mix-blend-overlay animate-pulse"></div>
-                    )}
-                  </div>
-                </div>
-
-                <div
-                  className={`absolute -bottom-1 -right-1 w-4 h-4 border-2 border-background rounded-full transition-colors ${isSpeaking
-                    ? "bg-cyan-400 animate-pulse"
-                    : isProcessing
-                      ? "bg-yellow-400"
-                      : "bg-emerald-500"
-                    }`}
-                ></div>
+          <section className="my-auto grid items-center gap-10 rounded-[2rem] border border-white/[0.08] bg-[#101820]/75 p-6 shadow-[0_28px_100px_rgba(0,0,0,0.28)] backdrop-blur-xl sm:p-10 lg:grid-cols-[1fr_0.9fr] lg:p-14">
+            <div className="max-w-xl">
+              <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/[0.07] px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-cyan-300">
+                <UiIcon name="spark" className="h-3.5 w-3.5" />
+                Your personal AI interviewer
               </div>
+              <h1 className="text-4xl font-extrabold leading-[1.08] tracking-tight text-white sm:text-5xl">
+                Your next interview starts <span className="text-cyan-400">here.</span>
+              </h1>
+              <p className="mt-5 max-w-lg text-base leading-7 text-zinc-400">
+                Settle in, speak naturally, and treat this like a real interview. Aria will guide the conversation and ask questions tailored to your preparation track.
+              </p>
 
-              <div className="text-sm font-medium text-zinc-300">
-                Aria - Senior Interviewer
-              </div>
-            </div>
-
-            <div className="w-full bg-zinc-900/40 border border-cyan-500/20 rounded-2xl p-8 mb-16 shadow-[0_0_30px_rgba(0,229,255,0.05)] transition-all animate-[fadeIn_0.5s_ease-out]">
-              <div className="text-[10px] tracking-widest text-cyan-400 font-bold uppercase mb-3 flex items-center gap-2">
-                <span className="material-symbols-outlined text-[16px]">
-                  forum
-                </span>
-                Current Question
-              </div>
-
-              <h2 className="text-xl md:text-2xl font-medium leading-relaxed min-h-[4rem]">
-                {isProcessing ? (
-                  <span className="text-zinc-500 italic animate-pulse">
-                    Thinking...
-                  </span>
-                ) : (
-                  <>“{currentQuestion}”</>
-                )}
-              </h2>
-            </div>
-
-            <div className="flex flex-col items-center w-full max-w-lg animate-[fadeIn_0.5s_ease-out]">
-              <div className="flex items-center justify-center gap-1.5 h-12 mb-8 w-full">
-                {isListening ? (
-                  <>
-                    <span className="text-white italic">
-                      {remainingTime}s remaining
-                    </span>
-
-                    <div className="flex items-center justify-center gap-1.5 h-12 mb-8 w-full">
-                      <div className="w-1.5 h-4 bg-cyan-400/80 rounded-full animate-[pulse_0.5s_ease-in-out_infinite]" />
-                      <div className="w-1.5 h-10 bg-cyan-400 rounded-full animate-[pulse_0.7s_ease-in-out_infinite_0.1s]" />
-                      <div className="w-1.5 h-14 bg-cyan-400 rounded-full animate-[pulse_0.4s_ease-in-out_infinite_0.2s]" />
-                      <div className="w-1.5 h-8 bg-cyan-400/90 rounded-full animate-[pulse_0.6s_ease-in-out_infinite_0.3s]" />
-                      <div className="w-1.5 h-12 bg-cyan-400 rounded-full animate-[pulse_0.5s_ease-in-out_infinite_0.4s]" />
-                      <div className="w-1.5 h-6 bg-cyan-400/80 rounded-full animate-[pulse_0.8s_ease-in-out_infinite_0.5s]" />
-                    </div>
-                  </>
-                ) : (
-                  <div className="text-zinc-600 text-xs tracking-widest uppercase font-bold">
-                    {isTranscribing
-                      ? "Transcribing your answer..."
-                      : isProcessing
-                        ? "Processing your answer..."
-                        : isSpeaking
-                          ? "Aria is speaking..."
-                          : "Ready"}
-                  </div>
-                )}
+              <div className="mt-8 flex flex-wrap gap-3 text-xs text-zinc-400">
+                <span className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-2"><UiIcon name="mic" className="h-4 w-4 text-cyan-400" /> Voice-based practice</span>
+                <span className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-2"><UiIcon name="message" className="h-4 w-4 text-cyan-400" /> Adaptive questions</span>
               </div>
 
               <button
                 type="button"
-                onClick={toggleListen}
-                disabled={isProcessing || isSpeaking || isTranscribing}
-                aria-label={
-                  isListening ? "Stop recording" : "Start recording"
-                }
-                className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 ${isListening
-                  ? "bg-red-500 text-white shadow-[0_0_40px_rgba(239,68,68,0.4)] hover:scale-105"
-                  : isProcessing || isSpeaking || isTranscribing
-                    ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                    : "bg-cyan-400 text-cyan-950 shadow-[0_0_40px_rgba(0,229,255,0.4)] hover:scale-105 animate-[pulse_2s_ease-in-out_infinite]"
-                  }`}
+                onClick={startInterview}
+                className="mt-9 inline-flex w-full items-center justify-center gap-3 rounded-xl bg-cyan-400 px-7 py-4 text-sm font-bold text-[#03202a] shadow-[0_10px_35px_rgba(0,210,235,0.2)] transition duration-200 hover:-translate-y-0.5 hover:bg-cyan-300 hover:shadow-[0_14px_40px_rgba(0,210,235,0.28)] focus:outline-none focus:ring-2 focus:ring-cyan-300 focus:ring-offset-2 focus:ring-offset-[#101820] sm:w-auto"
               >
-                <span className="material-symbols-outlined text-[32px]">
-                  {isListening ? "stop" : "mic"}
-                </span>
+                <UiIcon name="play" className="h-4 w-4" />
+                Start interview
+                <UiIcon name="arrow" className="h-4 w-4" />
               </button>
+              <p className="mt-4 text-xs text-zinc-600">Make sure your microphone is connected before starting.</p>
+            </div>
 
-              <div className="mt-6 text-sm text-center min-h-12 flex flex-col items-center gap-2">
-                {isListening ? (
-                  <span className="text-white italic">
-                    Listening...
-                  </span>
-                ) : transcript && !isProcessing ? (
-                  <span className="text-zinc-400 italic">
-                    “{transcript}”
-                  </span>
-                ) : (
-                  <span className="text-zinc-500 italic font-medium">
-                    Press the mic to start recording. Press it again to stop,
-                    or recording will stop automatically after 25 seconds.
-                  </span>
+            <div className="relative mx-auto w-full max-w-sm">
+              <div className="absolute inset-8 rounded-full bg-cyan-400/10 blur-3xl" />
+              <div className="relative overflow-hidden rounded-[1.75rem] border border-white/10 bg-[#0b1219] p-5 shadow-2xl">
+                <div className="mb-5 flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Meet your interviewer</p>
+                    <p className="mt-1 text-sm font-semibold text-white">Aria</p>
+                  </div>
+                  <span className="rounded-full border border-emerald-400/20 bg-emerald-400/[0.07] px-2.5 py-1 text-[10px] font-semibold text-emerald-300">ONLINE</span>
+                </div>
+                <div className="relative mx-auto aspect-[4/4.5] max-w-[260px] overflow-hidden rounded-2xl border border-cyan-300/20 bg-[#17232c] shadow-[0_0_45px_rgba(0,210,235,0.10)]">
+                  <Image
+                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuCXS5x7f-Y0FmdLICUQZLMQ5JM45r-mMZ0wWhUMe19cv2WWhJgw2oa10APLL2bDztn-wI0dGpd8Y-PPbANL6-3eqUjRYIcMw61H3rkaXy5OSkM2_hh-P7EOasE9LAHzuraBDyI-7GKxBqofnQJFGHRS5W8TNONSvG5PhTrJnZg7FY0oC-OgLQ4_qBJ-Dn6gaRK4PpvaPIC-Fn6LwEE2u4ba4fMCF82itmwqVk6TjZ39pc-aDqjCss_Agam_OTTUm96dKUWItZwD0BE"
+                    alt="Aria, your AI interviewer"
+                    width={520}
+                    height={585}
+                    priority
+                    className="h-full w-full object-cover object-center"
+                  />
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#05090d]/95 via-[#05090d]/35 to-transparent p-5 pt-16">
+                    <p className="text-lg font-bold text-white">Aria</p>
+                    <p className="mt-1 text-xs text-zinc-300">Your AI interview partner</p>
+                  </div>
+                </div>
+                <div className="mt-5 flex items-center gap-3 rounded-xl border border-white/[0.07] bg-white/[0.03] p-3">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-cyan-400/10 text-cyan-300"><UiIcon name="headphones" className="h-5 w-5" /></span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold text-zinc-200">Voice conversation</p>
+                    <p className="mt-0.5 text-[11px] text-zinc-500">Listen · Respond · Improve</p>
+                  </div>
+                  <div className="flex h-7 items-center gap-1">
+                    {[10, 18, 13, 24, 15, 21, 11, 18].map((height, index) => <span key={index} className="w-1 rounded-full bg-cyan-400/80" style={{ height }} />)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        ) : (
+          <section className="my-auto grid w-full items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+            <div className="min-w-0 space-y-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-400">Live interview</p>
+                  <h1 className="mt-1 text-2xl font-bold tracking-tight text-white sm:text-3xl">You’re speaking with Aria</h1>
+                  <p className="mt-1 text-sm text-zinc-500">{roleLabel}</p>
+                </div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-zinc-400">
+                  <UiIcon name="clock" className="h-4 w-4 text-cyan-400" />
+                  <span>Recording limit: 25 seconds</span>
+                </div>
+              </div>
+
+              <div className={`relative overflow-hidden rounded-[1.75rem] border bg-[#101820] p-5 transition-colors duration-300 sm:p-7 ${isSpeaking ? "border-cyan-400/40 shadow-[0_0_45px_rgba(0,210,235,0.08)]" : isListening ? "border-rose-400/30" : "border-white/[0.08]"}`}>
+                <div className="absolute right-0 top-0 h-48 w-48 rounded-full bg-cyan-400/[0.06] blur-3xl" />
+                <div className="relative flex flex-col items-center gap-5 sm:flex-row sm:items-center">
+                  <div className={`relative h-32 w-32 shrink-0 rounded-2xl border p-1.5 transition-all duration-500 sm:h-40 sm:w-40 ${isSpeaking ? "border-cyan-300/70 shadow-[0_0_35px_rgba(0,210,235,0.22)]" : "border-white/10"}`}>
+                    {isSpeaking && <span className="absolute -inset-2 animate-pulse rounded-[1.35rem] border border-cyan-300/30" />}
+                    <div className="h-full w-full overflow-hidden rounded-xl bg-[#17232c]">
+                      <Image
+                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuCXS5x7f-Y0FmdLICUQZLMQ5JM45r-mMZ0wWhUMe19cv2WWhJgw2oa10APLL2bDztn-wI0dGpd8Y-PPbANL6-3eqUjRYIcMw61H3rkaXy5OSkM2_hh-P7EOasE9LAHzuraBDyI-7GKxBqofnQJFGHRS5W8TNONSvG5PhTrJnZg7FY0oC-OgLQ4_qBJ-Dn6gaRK4PpvaPIC-Fn6LwEE2u4ba4fMCF82itmwqVk6TjZ39pc-aDqjCss_Agam_OTTUm96dKUWItZwD0BE"
+                        alt="Aria"
+                        width={320}
+                        height={320}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                    <span className={`absolute -bottom-2 -right-2 h-4 w-4 rounded-full border-[3px] border-[#101820] ${isSpeaking ? "animate-pulse bg-cyan-300" : isProcessing || isTranscribing ? "bg-amber-400" : isListening ? "animate-pulse bg-rose-400" : "bg-emerald-400"}`} />
+                  </div>
+
+                  <div className="min-w-0 flex-1 text-center sm:text-left">
+                    <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+                      <h2 className="text-xl font-bold text-white">Aria</h2>
+                      <span className="rounded-full border border-cyan-400/20 bg-cyan-400/[0.07] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-cyan-300">AI interviewer</span>
+                    </div>
+                    <p className="mt-2 text-sm text-zinc-400">Your interview partner for this {roleLabel.toLowerCase()} practice session.</p>
+                    <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-black/20 px-3 py-2">
+                      <span className={`h-2 w-2 rounded-full ${isListening ? "bg-rose-400" : isBusy ? "bg-amber-300" : "bg-emerald-400"}`} />
+                      <span className="text-xs font-medium text-zinc-300">{statusLabel}</span>
+                    </div>
+                    <div className="mt-5 flex h-8 items-center justify-center gap-1 sm:justify-start">
+                      {(isSpeaking ? [9, 18, 26, 14, 23, 30, 16, 25, 12, 20, 9] : isListening ? [15, 25, 12, 29, 18, 25, 11, 21, 14, 27, 10] : [7, 10, 13, 9, 15, 11, 8, 13, 9, 11, 7]).map((height, index) => (
+                        <span key={index} className={`w-1 rounded-full transition-all duration-300 ${isSpeaking ? "bg-cyan-300 animate-pulse" : isListening ? "bg-rose-300 animate-pulse" : "bg-cyan-400/40"}`} style={{ height: `${height}px`, animationDelay: `${index * 70}ms` }} />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-[1.5rem] border border-white/[0.08] bg-[#101820]/90 p-5 shadow-xl sm:p-7">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-300">
+                    <UiIcon name="message" className="h-4 w-4" />
+                    Current question
+                  </div>
+                  <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 text-[10px] text-zinc-500">{isProcessing ? "Generating" : isSpeaking ? "Read aloud" : "Interview prompt"}</span>
+                </div>
+                <h2 aria-live="polite" className="min-h-24 text-lg font-medium leading-8 text-zinc-100 sm:text-xl sm:leading-9">
+                  {isProcessing ? <span className="animate-pulse text-zinc-500">Aria is thinking about your response…</span> : `“${currentQuestion}”`}
+                </h2>
+              </div>
+            </div>
+
+            <aside className="rounded-[1.5rem] border border-white/[0.08] bg-[#101820]/90 p-5 sm:p-6">
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">Your response</p>
+              <div className="mt-5 flex flex-col items-center text-center">
+                <div className={`mb-4 flex h-24 w-24 items-center justify-center rounded-full border transition-all duration-300 ${isListening ? "border-rose-300/50 bg-rose-400/10 shadow-[0_0_35px_rgba(251,113,133,0.16)]" : isBusy ? "border-white/10 bg-white/[0.04]" : "border-cyan-300/30 bg-cyan-400/[0.08] shadow-[0_0_35px_rgba(0,210,235,0.10)]"}`}>
+                  <button
+                    type="button"
+                    onClick={toggleListen}
+                    disabled={isBusy}
+                    aria-label={isListening ? "Stop recording" : "Start recording"}
+                    className={`flex h-16 w-16 items-center justify-center rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-300 focus:ring-offset-4 focus:ring-offset-[#101820] ${isListening ? "bg-rose-500 text-white shadow-[0_0_25px_rgba(244,63,94,0.3)] hover:bg-rose-400" : isBusy ? "cursor-not-allowed bg-zinc-800 text-zinc-500" : "bg-cyan-400 text-[#03202a] shadow-[0_0_25px_rgba(0,210,235,0.25)] hover:scale-105 hover:bg-cyan-300"}`}
+                  >
+                    <UiIcon name={isListening ? "stop" : "mic"} className="h-7 w-7" />
+                  </button>
+                </div>
+
+                <p className="text-sm font-semibold text-white">{isListening ? "Recording your answer" : isTranscribing ? "Transcribing audio" : isProcessing ? "Preparing next question" : isSpeaking ? "Please listen to Aria" : "Ready for your answer"}</p>
+                <p className="mt-2 min-h-10 text-xs leading-5 text-zinc-500">{isListening ? "Speak clearly. Tap the button again to finish." : isBusy ? "The microphone will be available when Aria finishes." : "Tap the microphone and answer naturally."}</p>
+
+                {isListening && (
+                  <div className="mt-4 w-full rounded-xl border border-rose-400/20 bg-rose-400/[0.06] p-3">
+                    <div className="mb-2 flex items-center justify-between text-xs">
+                      <span className="font-medium text-rose-300">Recording</span>
+                      <span className="font-mono font-semibold tabular-nums text-white">00:{String(remainingTime).padStart(2, "0")}</span>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+                      <div className="h-full rounded-full bg-rose-400 transition-all duration-1000" style={{ width: `${Math.max(0, (remainingTime / 25) * 100)}%` }} />
+                    </div>
+                  </div>
+                )}
+
+                {transcript && !isProcessing && !isListening && (
+                  <div className="mt-4 w-full rounded-xl border border-white/[0.08] bg-black/20 p-3 text-left">
+                    <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Your last response</p>
+                    <p className="text-xs leading-5 text-zinc-300">“{transcript}”</p>
+                  </div>
                 )}
 
                 {errorMessage && (
-                  <p
-                    role="alert"
-                    aria-live="assertive"
-                    className="text-red-400 text-sm"
-                  >
+                  <div role="alert" aria-live="assertive" className="mt-4 w-full rounded-xl border border-rose-400/20 bg-rose-400/[0.07] p-3 text-left text-xs leading-5 text-rose-300">
+                    <div className="mb-1 flex items-center gap-2 font-semibold"><UiIcon name="x" className="h-3.5 w-3.5" /> Something went wrong</div>
                     {errorMessage}
-                  </p>
+                  </div>
                 )}
               </div>
-            </div>
-          </>
+              <div className="mt-5 border-t border-white/[0.07] pt-4 text-center text-[11px] leading-5 text-zinc-600">
+                Your recording stops automatically after 25 seconds. You can also tap the microphone to stop earlier.
+              </div>
+            </aside>
+          </section>
         )}
       </main>
 
-      <footer className="p-6 relative z-10 w-full max-w-5xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
-        <Link
-          href="/dashboard/feedback"
-          className="bg-zinc-900 hover:bg-zinc-800 border border-red-500/20 text-red-400 px-6 py-3 rounded-xl flex items-center gap-2 transition-colors font-medium"
-        >
-          <span className="material-symbols-outlined text-[20px]">
-            cancel
-          </span>
-          End Session
-        </Link>
+      <footer className="relative z-10 border-t border-white/[0.06] bg-[#0b1118]/80 px-5 py-4 backdrop-blur-xl sm:px-8">
+        <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-3 sm:flex-row">
+          <Link
+            href="/dashboard/feedback"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-rose-400/20 bg-rose-400/[0.05] px-5 py-3 text-sm font-semibold text-rose-300 transition hover:border-rose-400/40 hover:bg-rose-400/10 sm:w-auto"
+          >
+            <UiIcon name="x" className="h-4 w-4" />
+            End session
+          </Link>
 
-        <div className="flex gap-4 w-full sm:w-auto">
+          <div className="flex items-center gap-2 text-[11px] text-zinc-600">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            MockMate voice interview
+          </div>
+
           <button
             type="button"
             disabled
             title="Skipping questions is not currently supported"
-            className="flex-1 sm:flex-none bg-zinc-900 border border-white/10 text-zinc-500 px-6 py-3 rounded-xl flex items-center justify-center gap-2 cursor-not-allowed opacity-60"
+            className="inline-flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.03] px-5 py-3 text-sm font-medium text-zinc-600 opacity-70 sm:w-auto"
           >
-            <span className="material-symbols-outlined text-[20px]">
-              skip_next
-            </span>
             Skip unavailable
+            <UiIcon name="arrow" className="h-4 w-4" />
           </button>
         </div>
       </footer>
