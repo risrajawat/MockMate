@@ -1,14 +1,8 @@
 // app/layout.tsx
 import type { Metadata } from "next";
-import { Space_Grotesk, Inter } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import { HeaderWrapper } from "../components/HeaderWrapper";
-
-const spaceGrotesk = Space_Grotesk({
-  variable: "--font-space-grotesk",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-});
 
 const inter = Inter({
   variable: "--font-inter",
@@ -25,7 +19,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`dark ${spaceGrotesk.variable} ${inter.variable}`}>
+    <html lang="en" className={`dark ${inter.variable}`}>
       <head />
       <body className="bg-background text-on-background font-body-md selection:bg-primary-container selection:text-on-primary-container">
         <HeaderWrapper />

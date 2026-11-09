@@ -19,6 +19,9 @@ type Message = {
 interface InterviewContext {
   role?: string;
   skills?: string[];
+  projects?: string[];
+  education?: string[];
+  experienceYears?: number;
 }
 
 interface TranscriptionResponse {
@@ -49,6 +52,7 @@ function getServerInterviewContextSnapshot() {
   return null;
 }
 
+
 function parseInterviewContext(
   savedContext: string | null
 ): InterviewContext | null {
@@ -64,18 +68,40 @@ function parseInterviewContext(
     const value = parsed as Record<string, unknown>;
 
     return {
-      role: typeof value.role === "string" ? value.role : undefined,
+      role:
+        typeof value.role === "string"
+          ? value.role
+          : undefined,
+
       skills: Array.isArray(value.skills)
         ? value.skills.filter(
-          (skill): skill is string => typeof skill === "string"
-        )
+            (skill): skill is string => typeof skill === "string"
+          )
         : [],
+
+      projects: Array.isArray(value.projects)
+        ? value.projects.filter(
+            (project): project is string => typeof project === "string"
+          )
+        : [],
+
+      education: Array.isArray(value.education)
+        ? value.education.filter(
+            (item): item is string => typeof item === "string"
+          )
+        : [],
+
+      experienceYears:
+        typeof value.experienceYears === "number"
+          ? value.experienceYears
+          : undefined,
     };
   } catch {
     console.error("Failed to parse interview context");
     return null;
   }
 }
+
 
 function getInitialQuestion(context: InterviewContext | null): string {
   const role = context?.role?.trim();
