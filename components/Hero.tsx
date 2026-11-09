@@ -1,112 +1,296 @@
-import Image from 'next/image';
+
 import Link from 'next/link';
 
 export default function Hero() {
   return (
-    <section className="relative px-6 py-20 lg:py-32 overflow-hidden">
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-secondary-container/10 blur-[120px] rounded-full -z-10"></div>
-      <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
-        <div className="space-y-8">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/20 bg-primary/5">
-            <span className="w-2 h-2 rounded-full bg-primary-container animate-pulse"></span>
-            <span className="text-label-sm font-label-sm text-primary uppercase tracking-widest">
-              Next-Gen Interview Prep
+    <section className="relative isolate overflow-hidden px-6 py-20 sm:py-24 lg:py-32">
+      {/* Background effects */}
+      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+        <div className="absolute -top-40 left-1/4 h-[500px] w-[500px] rounded-full bg-cyan-500/[0.07] blur-[140px]" />
+        <div className="absolute right-0 top-1/3 h-[400px] w-[400px] rounded-full bg-violet-500/[0.06] blur-[130px]" />
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.018)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.018)_1px,transparent_1px)] bg-[size:64px_64px] [mask-image:linear-gradient(to_bottom,black,transparent_85%)]" />
+      </div>
+
+      <div className="mx-auto grid max-w-7xl items-center gap-16 lg:grid-cols-[0.95fr_1.05fr] lg:gap-12">
+
+        {/* LEFT: Hero content */}
+        <div className="relative z-10 space-y-8">
+
+          {/* Eyebrow */}
+          <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/[0.06] px-4 py-2">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-50" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-cyan-400" />
+            </span>
+            <span className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-300">
+              Your Personal AI Interview Coach
             </span>
           </div>
-          <h1 className="font-h1 text-h1 text-on-surface max-w-xl">
-            Practice Interviews with{' '}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-secondary-fixed-dim to-primary-container">
-              AI Confidence
-            </span>
-          </h1>
-          <p className="font-body-lg text-body-lg text-on-surface-variant max-w-lg">
-            Master your next interview with real-time AI feedback and voice interaction. Train with the world's most advanced behavioral coach.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 pt-4">
-            <Link href="/login" className="bg-primary-container text-on-primary-container px-8 py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 hover:brightness-110 transition-all group">
-              Start Mock Interview
-              <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform">
-                arrow_forward
+
+          {/* Heading */}
+          <div className="max-w-2xl space-y-5">
+            <h1 className="font-display text-4xl font-bold leading-[1.12] tracking-tight text-white sm:text-5xl lg:text-[64px]">
+              Don't just prepare.
+              <br />
+              <span className="bg-gradient-to-r from-cyan-300 via-cyan-400 to-blue-500 bg-clip-text text-transparent">
+                Get interview ready.
               </span>
-            </Link>
-            <button className="glass-card px-8 py-4 rounded-xl font-semibold text-on-surface flex items-center justify-center gap-2 hover:bg-white/10 transition-all">
-              <span className="material-symbols-outlined">play_circle</span>
-              View Demo
-            </button>
+            </h1>
+
+            <p className="max-w-xl text-base leading-8 text-zinc-400 sm:text-lg">
+              Practice real interview conversations with AI. Speak your
+              answers, tackle role-specific questions, and get feedback
+              that helps you improve with every session.
+            </p>
           </div>
-          <div className="flex items-center gap-6 pt-8">
-            <div className="flex -space-x-3">
-              <div className="w-10 h-10 rounded-full border-2 border-background bg-zinc-800 flex items-center justify-center overflow-hidden">
-                <img
-                  className="w-full h-full object-cover"
-                  alt="Portrait of a young professional woman in a business setting"
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuC0ACA6VVWckvG8ium8ybBw08_mXefueXNJuRhrsvucoDx7Bh4AD5BiSv6SYoAo_ikgXoNVxjrSKbHdGQwZtMQeZwOoWwLYj9tnk8CDktppkvxdlkFm-KTZuOqCClhuilUTAYvKISCiVumPCSnj3CaAqGsiUHdrD3_yLUKsKxsS1SbfquuF2lS540qoPWg3ykjM3q3-v6k6tzVc7KLiqWS1pnii70OQYr1amryfamCW2-cknp8eBVfvwIZ4z496a-HQYl4X6VC6UC0"
-                />
+
+          {/* CTA */}
+          <div className="flex flex-col gap-4 pt-2 sm:flex-row">
+            <Link
+              href="/login"
+              className="group inline-flex items-center justify-center gap-3 rounded-xl bg-cyan-400 px-7 py-4 text-sm font-bold text-[#071017] shadow-[0_0_30px_rgba(0,212,255,0.18)] transition-all duration-300 hover:-translate-y-1 hover:bg-cyan-300 hover:shadow-[0_0_40px_rgba(0,212,255,0.3)]"
+            >
+              Start Practicing
+              <svg
+                className="h-5 w-5 transition-transform duration-300 group-hover:translate-x-1"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M5 12h14" />
+                <path d="m12 5 7 7-7 7" />
+              </svg>
+            </Link>
+
+            <a
+              href="#how-it-works"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-7 py-4 text-sm font-semibold text-zinc-200 transition-all duration-300 hover:border-cyan-400/30 hover:bg-white/[0.07]"
+            >
+              How it works
+              <svg
+                className="h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="m7 10 5 5 5-5" />
+              </svg>
+            </a>
+          </div>
+
+          {/* Product benefits */}
+          <div className="flex flex-wrap gap-x-6 gap-y-3 border-t border-white/[0.08] pt-7">
+            {[
+              'Voice-based practice',
+              'Role-specific questions',
+              'Actionable feedback',
+            ].map((item) => (
+              <div key={item} className="flex items-center gap-2">
+                <svg
+                  className="h-4 w-4 text-cyan-400"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="m5 12 4 4L19 6" />
+                </svg>
+                <span className="text-xs font-medium text-zinc-400">
+                  {item}
+                </span>
               </div>
-              <div className="w-10 h-10 rounded-full border-2 border-background bg-zinc-800 flex items-center justify-center overflow-hidden">
-                <img
-                  className="w-full h-full object-cover"
-                  alt="Portrait of a confident businessman smiling in a modern office"
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuCXS5x7f-Y0FmdLICUQZLMQ5JM45r-mMZ0wWhUMe19cv2WWhJgw2oa10APLL2bDztn-wI0dGpd8Y-PPbANL6-3eqUjRYIcMw61H3rkaXy5OSkM2_hh-P7EOasE9LAHzuraBDyI-7GKxBqofnQJFGHRS5W8TNONSvG5PhTrJnZg7FY0oC-OgLQ4_qBJ-Dn6gaRK4PpvaPIC-Fn6LwEE2u4ba4fMCF82itmwqVk6TjZ39pc-aDqjCss_Agam_OTTUm96dKUWItZwD0BE"
-                />
-              </div>
-              <div className="w-10 h-10 rounded-full border-2 border-background bg-zinc-800 flex items-center justify-center overflow-hidden">
-                <img
-                  className="w-full h-full object-cover"
-                  alt="Professional woman looking thoughtfully during a video conference"
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuDKm9dxgVTIBEiWbdAUyCnzIejEtQ-Xn2B2Dzw9_cfJY2-SvmcrzdVJc9S7APJo8GFHG8ig3eD_9_dk2aqvfnwNF4u1RY8jMDZDt-le0kfG22sM-2TrVs5cQRmqO3U840mYjBoMl6xcaJWqCo9HVFI6BexOLla26SPZCQZ1UNFfJ0M9USPXAwnD8GGcv1cw1YmsbyPqxdY3idaeE_6mBo-kB5jQnqptLdDBHasSBeRrU6SSaPsU9F3ibjR5tEIKjTyFhX-VLT2YAJs"
-                />
-              </div>
-            </div>
-            <p className="text-label-sm font-label-sm text-zinc-500">JOIN 10,000+ CANDIDATES LANDING DREAM JOBS</p>
+            ))}
           </div>
         </div>
-        <div className="relative">
-          <div className="glass-card p-4 rounded-3xl neon-glow relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-4">
-              <div className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold border border-emerald-500/30">
-                LIVE SESSION
+
+        {/* RIGHT: Product preview */}
+        <div className="relative mx-auto w-full max-w-[600px] lg:ml-auto">
+
+          {/* Ambient glow */}
+          <div className="absolute inset-8 rounded-full bg-cyan-400/[0.08] blur-[90px]" />
+
+          {/* Main window */}
+          <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#111820] shadow-[0_25px_100px_rgba(0,0,0,0.45)]">
+
+            {/* Window header */}
+            <div className="flex items-center justify-between border-b border-white/[0.07] px-5 py-4">
+              <div className="flex items-center gap-3">
+                <div className="flex gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-red-400/80" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-yellow-400/80" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-green-400/80" />
+                </div>
+                <span className="ml-2 text-xs font-medium text-zinc-400">
+                  MockMate Interview Room
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/[0.08] px-3 py-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300">
+                  Preview
+                </span>
               </div>
             </div>
-            <img
-              className="rounded-2xl w-full aspect-video object-cover"
-              alt="Abstract 3D visualization of a glowing digital neural network or AI brain with blue and cyan pulses of light"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuBLBnPHS4BdI2HLZ4DeSFJJN2Supv21axhyVAnggRT5t1xiPHmcZ3bzNtmcq60X5bBy2KG9lXSrfnw_UIOMaAY9o-QNJPkZo1nA2jIF4rbawiokWZ_-iElwxZ6_iS05OK4Md0m2KJ6QF9AeJoHKWL9FkC8YElr5E75Yf7YVaGd0BBYYws3JMOhkUBwJ5tm9g1ioQLL8BGdmausc-MfkrMhDjTwIaqkQ6kIQWHkbRzFvCWF8sLt9wGTpMzeCfGIAeiAi3Dpq8Gcmhcc"
-            />
-            <div className="mt-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-secondary-fixed-dim/20 flex items-center justify-center">
+
+            {/* Session information */}
+            <div className="flex items-center justify-between px-5 py-4">
+              <div>
+                <p className="text-xs text-zinc-500">PRACTICE SESSION</p>
+                <h3 className="mt-1 text-sm font-semibold text-white">
+                  Backend Developer
+                </h3>
+              </div>
+              <div className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2">
+                <p className="text-[10px] text-zinc-500">SESSION</p>
+                <p className="text-xs font-semibold text-zinc-200">
+                  Technical
+                </p>
+              </div>
+            </div>
+
+            {/* Interviewer panel */}
+            <div className="mx-5 overflow-hidden rounded-xl border border-cyan-400/10 bg-[#0B1119]">
+
+              <div className="relative flex min-h-[220px] flex-col items-center justify-center overflow-hidden px-5 py-8">
+
+                {/* Background circles */}
+                <div className="absolute h-48 w-48 rounded-full border border-cyan-400/[0.08]" />
+                <div className="absolute h-36 w-36 rounded-full border border-cyan-400/[0.12]" />
+                <div className="absolute h-24 w-24 rounded-full border border-cyan-400/[0.16]" />
+
+                {/* AI Avatar */}
+                <div className="relative flex h-20 w-20 items-center justify-center rounded-2xl border border-cyan-300/30 bg-gradient-to-br from-cyan-400/20 to-blue-500/10 shadow-[0_0_45px_rgba(0,212,255,0.15)]">
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="h-10 w-10 text-cyan-300"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <rect x="4" y="7" width="16" height="13" rx="4" />
+                    <path d="M12 3v4M9 13h.01M15 13h.01M9 17h6M2 12h2M20 12h2" />
+                  </svg>
+                </div>
+
+                <p className="relative mt-4 text-sm font-semibold text-white">
+                  AI Interviewer
+                </p>
+                <p className="relative mt-1 text-xs text-zinc-500">
+                  Ready to begin your practice
+                </p>
+              </div>
+
+              {/* Question */}
+              <div className="border-t border-white/[0.07] px-5 py-5">
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
+                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-cyan-300">
+                    Sample interview question
+                  </span>
+                </div>
+                <p className="text-sm font-medium leading-7 text-zinc-200 sm:text-base">
+                  How would you design a scalable REST API that can handle
+                  thousands of concurrent requests?
+                </p>
+              </div>
+            </div>
+
+            {/* Audio waveform */}
+            <div className="mx-5 my-4 flex items-center justify-between rounded-xl border border-white/[0.07] bg-white/[0.025] px-4 py-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-cyan-400/10">
+                  <svg
+                    className="h-4 w-4 text-cyan-300"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  >
+                    <rect x="9" y="3" width="6" height="12" rx="3" />
+                    <path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-zinc-200">
+                    Voice interaction
+                  </p>
+                  <p className="mt-1 text-[10px] text-zinc-500">
+                    Listen. Respond. Improve.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex h-8 items-center gap-[3px]">
+                {[12, 20, 27, 16, 30, 22, 12, 25, 18, 29, 14, 21, 11].map(
+                  (height, index) => (
                     <span
-                      className="material-symbols-outlined text-primary-container"
-                      style={{ fontVariationSettings: "'FILL' 1" }}
-                    >
-                      mic
-                    </span>
-                  </div>
-                  <div>
-                    <div className="text-sm font-bold">AI Interviewer</div>
-                    <div className="text-xs text-zinc-500">"Tell me about a difficult project..."</div>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <div className="w-8 h-1 bg-primary-container rounded-full animate-pulse"></div>
-                  <div className="w-8 h-1 bg-primary-container/40 rounded-full"></div>
-                  <div className="w-8 h-1 bg-primary-container/40 rounded-full"></div>
-                </div>
+                      key={index}
+                      style={{ height: `${height}px` }}
+                      className={`w-[3px] rounded-full ${
+                        index % 3 === 0
+                          ? 'bg-blue-400/60'
+                          : 'bg-cyan-400'
+                      }`}
+                    />
+                  )
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between border-t border-white/[0.07] px-5 py-4">
+              <span className="text-[11px] text-zinc-500">
+                Your next interview starts here.
+              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
+                <span className="text-[10px] font-semibold text-zinc-400">
+                  AI-powered practice
+                </span>
               </div>
             </div>
           </div>
-          <div className="absolute -bottom-6 -left-6 glass-card p-6 rounded-2xl hidden md:block">
-            <div className="flex items-center gap-4">
-              <div className="text-3xl font-black text-primary-container">94%</div>
-              <div className="text-xs font-medium text-zinc-400 leading-tight">
-                IMPROVEMENT
-                <br />
-                IN CONFIDENCE
+
+          {/* Floating feedback card */}
+          <div className="absolute -bottom-7 -left-4 hidden rounded-xl border border-white/10 bg-[#171F29] p-4 shadow-2xl sm:block md:-left-8">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-400/10">
+                <svg
+                  className="h-5 w-5 text-violet-300"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M3 3v18h18" />
+                  <path d="m7 14 4-4 4 4 6-7" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-white">
+                  Feedback that matters
+                </p>
+                <p className="mt-1 text-[10px] text-zinc-500">
+                  Improve with every session
+                </p>
               </div>
             </div>
           </div>
+
         </div>
       </div>
     </section>

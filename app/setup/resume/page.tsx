@@ -14,7 +14,7 @@ import { useRouter } from "next/navigation";
 function parsePlainTextResume(text: string) {
   const lines = text
     .split(/\r?\n/)
-    .map((l) => l.trim())
+    .map((line) => line.replace(/\s+/g, " ").trim())
     .filter(Boolean);
 
   const result: {
@@ -29,40 +29,121 @@ function parsePlainTextResume(text: string) {
     education: [],
   };
 
-  // Candidate name – first non‑empty line that is not a known section header.
-  const possibleName = lines[0];
-  if (possibleName && !/^(skills|project|education)[:\s]/i.test(possibleName)) {
-    result.name = possibleName;
-  }
+  // Recognize common resume section headings.
+  const sectionPatterns: Record<string, RegExp> = {
+    skills: /^(technical\s+skills|skills|core\s+competencies|technologies|tech\s+stack|areas\s+of\s+expertise)$/i,
+    projects: /^(projects|personal\s+projects|academic\s+projects|key\s+projects|project\s+experience)$/i,
+    education: /^(education|academic\s+background|educational\s+qualifications|academics)$/i,
+    experience: /^(work\s+experience|professional\s+experience|employment\s+history|work\s+history|experience|internships?)$/i,
+  };
 
-  // Skills – line starting with "Skills:" (case‑insensitive).
-  const skillsLine = lines.find((l) => /^skills[:\s]/i.test(l));
-  if (skillsLine) {
-    const after = skillsLine.split(/:/)[1];
-    if (after) {
-      result.skills = after
-        .split(/[,;]+/)
-        .map((s) => s.trim())
-        .filter(Boolean);
+  const sections: Record<string, string[]> = {
+    skills: [],
+    projects: [],
+    education: [],
+    experience: [],
+  };
+
+  let currentSection = "";
+
+  for (const line of lines) {
+    const normalized = line
+      .replace(/[:|]+$/, "")
+      .replace(/^[•●▪◦*-]\s*/, "")
+      .trim();
+
+    const matchedSection = Object.entries(sectionPatterns).find(
+      ([, pattern]) => pattern.test(normalized)
+    );
+
+    if (matchedSection) {
+      currentSection = matchedSection[0];
+      continue;
+    }
+
+    // Also support headings such as "TECHNICAL SKILLS: React, Node.js".
+    const inlineHeading = line.match(
+      /^(technical\s+skills|skills|core\s+competencies|technologies|tech\s+stack|projects|personal\s+projects|academic\s+projects|education|academic\s+background|work\s+experience|professional\s+experience|employment\s+history)\s*:\s*(.+)$/i
+    );
+
+    if (inlineHeading) {
+      const heading = inlineHeading[1].toLowerCase();
+
+      if (/skill|technolog|competenc|stack/.test(heading)) {
+        currentSection = "skills";
+      } else if (/project/.test(heading)) {
+        currentSection = "projects";
+      } else if (/education|academic/.test(heading)) {
+        currentSection = "education";
+      } else {
+        currentSection = "experience";
+      }
+
+      sections[currentSection].push(inlineHeading[2].trim());
+      continue;
+    }
+
+    if (currentSection) {
+      sections[currentSection].push(line);
     }
   }
 
-  // Projects – any line that begins with "Project:".
-  const projectLines = lines.filter((l) => /^project[:\s]/i.test(l));
-  result.projects = projectLines.map((l) => l.replace(/^project[:\s]/i, "").trim());
+  // Candidate name: inspect only the introductory lines before resume sections.
+  const firstSectionIndex = lines.findIndex((line) =>
+    Object.values(sectionPatterns).some((pattern) => pattern.test(line.replace(/[:|]+$/, "").trim()))
+  );
 
-  // Education – text after an "Education:" header until a blank line.
-  const eduIdx = lines.findIndex((l) => /^education[:\s]/i.test(l));
-  if (eduIdx !== -1) {
-    for (let i = eduIdx + 1; i < lines.length; i++) {
-      const line = lines[i];
-      if (!line) break;
-      result.education.push(line);
-    }
+  const introLines = lines.slice(
+    0,
+    firstSectionIndex === -1 ? Math.min(lines.length, 5) : firstSectionIndex
+  );
+
+  const nameCandidate = introLines.find((line) => {
+    const hasEmail = /@/.test(line);
+    const hasPhone = /(\+?\d[\d\s()-]{8,}\d)/.test(line);
+    const looksLikeUrl = /(https?:\/\/|linkedin|github\.com)/i.test(line);
+    const isTooLong = line.length > 55;
+
+    return !hasEmail && !hasPhone && !looksLikeUrl && !isTooLong;
+  });
+
+  if (nameCandidate) {
+    result.name = nameCandidate.replace(/[|•]+$/, "").trim();
   }
 
-  // Experience years – first occurrence of "X years".
-  const yearsMatch = text.match(/(\d+)\s+years?/i);
+  // Extract skills from comma, bullet, pipe or semicolon-separated content.
+  result.skills = [
+    ...new Set(
+      sections.skills
+        .join(",")
+        .split(/[,;|•●▪◦]+/)
+        .map((item) => item.replace(/^[\s*-]+/, "").trim())
+        .filter((item) => item.length > 1 && item.length < 45)
+    ),
+  ];
+
+  // Keep project descriptions as separate entries.
+  result.projects = [
+    ...new Set(
+      sections.projects
+        .map((item) => item.replace(/^[•●▪◦*-]\s*/, "").trim())
+        .filter((item) => item.length > 3)
+    ),
+  ];
+
+  result.education = [
+    ...new Set(
+      sections.education
+        .map((item) => item.replace(/^[•●▪◦*-]\s*/, "").trim())
+        .filter((item) => item.length > 3)
+    ),
+  ];
+
+  // Only accept an explicitly stated experience duration.
+  const yearsMatch = text.match(
+    /(\d+(?:\.\d+)?)\s*\+?\s*years?\s+(?:of\s+)?(?:professional\s+)?experience/i
+  );
+
   if (yearsMatch) {
     result.experienceYears = Number(yearsMatch[1]);
   }
@@ -78,7 +159,6 @@ function parsePlainTextResume(text: string) {
 async function extractPdfText(file: File): Promise<string> {
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf");
 
-  // Configure the PDF.js worker
   pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 
   const arrayBuffer = await file.arrayBuffer();
@@ -87,20 +167,78 @@ async function extractPdfText(file: File): Promise<string> {
     data: arrayBuffer,
   }).promise;
 
-  let text = "";
+  const extractedPages: string[] = [];
 
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
+  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+    const page = await pdf.getPage(pageNumber);
     const content = await page.getTextContent();
 
-    const pageText = content.items
-  .map((item: { str?: string }) => item.str ?? "")
-  .join(" ");
+    const items = content.items
+      .filter(
+        (item): item is typeof item & {
+          str: string;
+          transform: number[];
+          width: number;
+        } =>
+          "str" in item &&
+          typeof item.str === "string" &&
+          "transform" in item &&
+          Array.isArray(item.transform)
+      )
+      .map((item) => ({
+        text: item.str.trim(),
+        x: item.transform[4],
+        y: item.transform[5],
+        width: item.width ?? 0,
+      }))
+      .filter((item) => item.text.length > 0)
+      .sort((a, b) => {
+        // PDF coordinates start at the bottom, so higher y comes first.
+        if (Math.abs(b.y - a.y) > 3) {
+          return b.y - a.y;
+        }
+        return a.x - b.x;
+      });
 
-    text += pageText + "\n";
+    const rows: typeof items[] = [];
+
+    for (const item of items) {
+      let row = rows.find(
+        (existingRow) => Math.abs(existingRow[0].y - item.y) <= 3
+      );
+
+      if (!row) {
+        row = [];
+        rows.push(row);
+      }
+
+      row.push(item);
+    }
+
+    const pageLines = rows.map((row) => {
+      row.sort((a, b) => a.x - b.x);
+
+      let line = "";
+      let previousEnd = 0;
+
+      for (const item of row) {
+        const gap = item.x - previousEnd;
+
+        if (line && gap > 2) {
+          line += " ";
+        }
+
+        line += item.text;
+        previousEnd = item.x + item.width;
+      }
+
+      return line.trim();
+    });
+
+    extractedPages.push(pageLines.filter(Boolean).join("\n"));
   }
 
-  return text;
+  return extractedPages.join("\n\n");
 }
 
 
@@ -120,7 +258,7 @@ async function extractTextFromFile(file: File): Promise<string> {
   }
   if (
     file.type ===
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
     lower.endsWith(".docx")
   ) {
     return await extractDocxText(file);
@@ -230,210 +368,367 @@ export default function ResumeUpload() {
     localStorage.removeItem("interview_context");
   };
 
+
   return (
-    <div className="max-w-4xl mx-auto px-8 py-12">
-      {/* Header */}
-      <div className="flex justify-between items-start mb-12">
-        <div>
-          <div className="text-[10px] tracking-widest text-cyan-400 font-bold uppercase mb-2">
-            Step 1 of 3
-          </div>
-          <h1 className="text-3xl font-bold font-h2">Upload Your Resume</h1>
-        </div>
-        <div className="flex gap-2 pt-2">
-          <div className="h-1 w-8 bg-cyan-400 rounded-full"></div>
-          <div className="h-1 w-8 bg-white/10 rounded-full"></div>
-          <div className="h-1 w-8 bg-white/10 rounded-full"></div>
-        </div>
-      </div>
+    <main className="relative min-h-full overflow-hidden bg-[#0B0F14] px-5 py-10 text-white sm:px-8 lg:px-12">
+      {/* Ambient background */}
+      <div className="pointer-events-none absolute -right-40 top-0 h-96 w-96 rounded-full bg-cyan-500/[0.05] blur-[120px]" />
 
-      {/* Hidden file input */}
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileChange}
-        accept=".pdf,.doc,.docx,.rtf,.txt"
-        className="hidden"
-      />
+      <div className="relative mx-auto max-w-6xl">
 
-      {/* Idle upload area */}
-      {status === "idle" && (
-        <div
-          className="border-2 border-dashed border-white/10 hover:border-cyan-500/30 transition-colors rounded-2xl p-12 flex flex-col items-center justify-center text-center mb-8 bg-zinc-900/20 cursor-pointer"
-          onClick={triggerFileInput}
-          onDragOver={handleDragOver}
-          onDrop={handleDrop}
-        >
-          <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-6 pointer-events-none">
-            <span className="material-symbols-outlined text-3xl text-white">cloud_upload</span>
-          </div>
-          <h3 className="text-xl font-bold mb-2 pointer-events-none">
-            Select a file or <span className="text-cyan-400">Drag it here</span>
-          </h3>
-          <p className="text-zinc-400 text-sm mb-6 pointer-events-none">
-            We support PDF, DOCX, RTF and plain‑text formats. Max file size: 10MB.
-          </p>
-          <button
-            type="button"
-            className="bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium py-2.5 px-6 rounded-lg flex items-center gap-2 transition-colors pointer-events-none"
-          >
-            <span className="material-symbols-outlined text-lg">attach_file</span>
-            Browse Files
-          </button>
-        </div>
-      )}
-
-      {/* Parsing indicator */}
-      {status === "parsing" && (
-        <div className="border-2 border-cyan-500/30 rounded-2xl p-12 flex flex-col items-center justify-center text-center mb-8 bg-zinc-900/40 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-400/10 to-transparent -translate-x-full animate-[shimmer_2s_infinite]"></div>
-          <div className="relative w-20 h-20 mb-6">
-            <div className="absolute inset-0 border-4 border-white/10 rounded-full"></div>
-            <div className="absolute inset-0 border-4 border-cyan-400 rounded-full border-t-transparent animate-spin"></div>
-            <div className="absolute inset-0 flex items-center justify-center text-cyan-400">
-              <span className="material-symbols-outlined text-3xl">auto_awesome</span>
+        {/* Progress header */}
+        <div className="mb-10 flex flex-col justify-between gap-6 sm:flex-row sm:items-center">
+          <div>
+            <div className="mb-3 flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
+              <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-cyan-300">
+                Your interview journey
+              </span>
             </div>
+            <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
+              Let's get to know you.
+            </h1>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-400">
+              Upload your resume and let MockMate understand your skills,
+              experience and projects before your interview.
+            </p>
           </div>
-          <h3 className="text-xl font-bold mb-2 text-white">AI is parsing your resume...</h3>
-          <p className="text-cyan-400 text-sm animate-pulse">Extracting skills, experience, and project details.</p>
-        </div>
-      )}
 
-      {/* Error state */}
-      {status === "error" && errorMessage && (
-        <div
-          className="border border-red-500/30 bg-red-900/20 text-red-300 p-4 rounded mb-8"
-          role="alert"
-          aria-live="assertive"
-        >
-          {errorMessage}
+          <div className="rounded-xl border border-white/[0.08] bg-[#111820] px-5 py-4">
+            <div className="mb-3 flex items-center justify-between gap-8">
+              <span className="text-xs font-semibold text-zinc-300">
+                Setup progress
+              </span>
+              <span className="text-xs font-bold text-cyan-300">01 / 03</span>
+            </div>
+            <div className="flex gap-2">
+              <div className="h-1.5 w-10 rounded-full bg-cyan-400" />
+              <div className="h-1.5 w-10 rounded-full bg-white/10" />
+              <div className="h-1.5 w-10 rounded-full bg-white/10" />
+            </div>
+            <p className="mt-2 text-[10px] text-zinc-500">
+              Resume <span className="mx-1">·</span> Role <span className="mx-1">·</span> Interview
+            </p>
+          </div>
         </div>
-      )}
 
-      {/* Completed state – show extracted data */}
-      {status === "complete" && file && (
-        <div className="flex flex-col lg:flex-row gap-6 mb-16 animate-[fadeIn_0.5s_ease-out]">
-          {/* Left side – file card */}
-          <div className="flex-1 flex flex-col gap-6">
-            <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-4 flex items-center gap-4 relative overflow-hidden">
-              <div className="absolute left-0 top-0 bottom-0 w-1 bg-cyan-400"></div>
-              <div className="w-10 h-10 rounded-full bg-cyan-400/10 flex items-center justify-center text-cyan-400 flex-shrink-0">
-                <span className="material-symbols-outlined">description</span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex justify-between items-center mb-1">
-                  <h4 className="font-bold text-sm truncate pr-4">{file.name}</h4>
-                  <span className="text-[10px] font-bold tracking-wider text-emerald-400 uppercase">Parsed</span>
-                </div>
-                <div className="text-xs text-zinc-400 mb-2">
-                  {(file.size / (1024 * 1024)).toFixed(2)} MB • Analysis complete
-                </div>
-                <div className="h-1 bg-white/10 rounded-full overflow-hidden">
-                  <div className="h-full bg-cyan-400 w-full"></div>
-                </div>
-              </div>
-              <button
-                onClick={removeFile}
-                className="w-8 h-8 flex items-center justify-center text-zinc-500 hover:text-white hover:bg-red-500/20 rounded transition-colors flex-shrink-0"
+        {/* Hidden file input */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          accept=".pdf,.doc,.docx,.rtf,.txt"
+          className="hidden"
+        />
+
+        {/* Upload instructions */}
+        {status !== "complete" && (
+          <div className="mb-6 grid gap-4 sm:grid-cols-3">
+            {[
+              { number: "01", title: "Upload resume", description: "Share your existing CV" },
+              { number: "02", title: "AI extraction", description: "We identify your profile" },
+              { number: "03", title: "Personalized prep", description: "Get role-specific questions" },
+            ].map((item) => (
+              <div
+                key={item.number}
+                className="flex items-center gap-3 rounded-xl border border-white/[0.07] bg-[#111820]/70 p-4"
               >
-                <span className="material-symbols-outlined text-[18px]">delete</span>
-              </button>
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-cyan-400/15 bg-cyan-400/[0.07] font-mono text-xs font-bold text-cyan-300">
+                  {item.number}
+                </span>
+                <div>
+                  <p className="text-xs font-semibold text-zinc-200">{item.title}</p>
+                  <p className="mt-1 text-[10px] text-zinc-500">{item.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Idle upload state */}
+        {status === "idle" && (
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label="Choose or drop your resume file"
+            onClick={triggerFileInput}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                triggerFileInput();
+              }
+            }}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+            className="group relative flex min-h-[340px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed border-cyan-400/25 bg-[#111820]/70 px-6 py-12 text-center transition-all duration-300 hover:border-cyan-400/50 hover:bg-cyan-400/[0.025] sm:min-h-[380px]"
+          >
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(0,212,255,0.055),transparent_65%)] opacity-0 transition-opacity group-hover:opacity-100" />
+
+            <div className="relative mb-7 flex h-20 w-20 items-center justify-center rounded-2xl border border-cyan-400/20 bg-cyan-400/[0.07] text-cyan-300 shadow-[0_0_35px_rgba(0,212,255,0.07)] transition-transform duration-300 group-hover:-translate-y-1">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="h-9 w-9">
+                <path d="M12 16V4m-5 5 5-5 5 5" />
+                <path d="M20 16.5v2A2.5 2.5 0 0 1 17.5 21h-11A2.5 2.5 0 0 1 4 18.5v-2" />
+              </svg>
             </div>
 
-            {/* AI extraction results */}
-            <div className="bg-gradient-to-br from-cyan-900/20 to-zinc-900/50 border border-cyan-500/20 rounded-xl p-6 relative overflow-hidden">
-              <div className="absolute -right-10 -top-10 w-40 h-40 bg-cyan-500/10 blur-[40px] rounded-full"></div>
-              <div className="flex items-center gap-2 text-cyan-400 mb-4 font-bold">
-                <span className="material-symbols-outlined text-[20px]">auto_awesome</span>
-                AI Extraction Results
+            <h2 className="relative text-xl font-bold text-white sm:text-2xl">
+              Drop your resume here
+            </h2>
+            <p className="relative mt-3 max-w-md text-sm leading-6 text-zinc-400">
+              Drag and drop your file or browse your device to upload your
+              resume.
+            </p>
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                triggerFileInput();
+              }}
+              className="relative mt-7 inline-flex items-center gap-2 rounded-xl bg-cyan-400 px-6 py-3.5 text-sm font-bold text-[#071017] shadow-[0_0_25px_rgba(0,212,255,0.12)] transition-all hover:-translate-y-0.5 hover:bg-cyan-300"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
+                <path d="M12 16V4m-5 5 5-5 5 5M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
+              </svg>
+              Browse files
+            </button>
+
+            <div className="relative mt-7 flex flex-wrap items-center justify-center gap-2">
+              {["PDF", "DOCX", "TXT", "RTF"].map((format) => (
+                <span
+                  key={format}
+                  className="rounded-md border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-[10px] font-semibold tracking-wider text-zinc-400"
+                >
+                  {format}
+                </span>
+              ))}
+            </div>
+            <p className="relative mt-3 text-[11px] text-zinc-600">
+              Maximum file size: 10 MB
+            </p>
+          </div>
+        )}
+
+        {/* Parsing state */}
+        {status === "parsing" && (
+          <div className="flex min-h-[340px] flex-col items-center justify-center rounded-2xl border border-cyan-400/20 bg-[#111820] px-6 py-12 text-center">
+            <div className="relative mb-7 flex h-20 w-20 items-center justify-center">
+              <div className="absolute inset-0 rounded-full border-2 border-white/10" />
+              <div className="absolute inset-0 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-8 w-8 text-cyan-300">
+                <path d="m12 3 1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2L12 3Z" />
+              </svg>
+            </div>
+            <h2 className="text-xl font-bold text-white">
+              Analyzing your resume
+            </h2>
+            <p className="mt-3 max-w-md text-sm leading-6 text-zinc-400">
+              Extracting your skills, projects, education and experience.
+              This may take a moment.
+            </p>
+            {file && (
+              <div className="mt-7 flex items-center gap-3 rounded-xl border border-white/[0.08] bg-[#0B1119] px-4 py-3">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="h-5 w-5 text-cyan-300">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+                  <path d="M14 2v6h6" />
+                </svg>
+                <span className="max-w-[220px] truncate text-xs text-zinc-300">
+                  {file.name}
+                </span>
               </div>
-              <div className="space-y-4 relative z-10">
-                {/* Candidate name */}
-                {(() => {
-                  const ctx = JSON.parse(localStorage.getItem("interview_context") ?? "{}");
-                  return ctx.name ? (
-                    <div>
-                      <div className="text-[10px] tracking-widest text-zinc-500 uppercase font-semibold mb-1">
-                        Candidate Name
-                      </div>
-                      <div className="text-white">{ctx.name}</div>
-                    </div>
-                  ) : null;
-                })()}
-                {/* Skills */}
-                <div>
-                  <div className="text-[10px] tracking-widest text-zinc-500 uppercase font-semibold mb-1">
-                    Top Skills Detected
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {JSON.parse(localStorage.getItem("interview_context") ?? "{}").skills?.map((skill: string) => (
-                      <span
-                        key={skill}
-                        className="px-2 py-1 bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-xs rounded-md"
-                      >
-                        {skill}
-                      </span>
-                    ))}
-                  </div>
+            )}
+          </div>
+        )}
+
+        {/* Error state */}
+        {status === "error" && errorMessage && (
+          <div
+            className="rounded-2xl border border-red-500/20 bg-red-500/[0.06] p-6 sm:p-8"
+            role="alert"
+            aria-live="assertive"
+          >
+            <div className="flex items-start gap-4">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-red-500/10 text-red-400">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-6 w-6">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 8v5m0 3h.01" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-semibold text-red-300">We couldn't process your resume</h3>
+                <p className="mt-2 text-sm leading-6 text-red-200/70">{errorMessage}</p>
+                <button
+                  type="button"
+                  onClick={triggerFileInput}
+                  className="mt-5 rounded-lg border border-red-400/20 bg-red-400/10 px-4 py-2.5 text-xs font-semibold text-red-200 transition-colors hover:bg-red-400/20"
+                >
+                  Try another file
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Completed state */}
+        {status === "complete" && file && (
+          <div className="grid gap-6 lg:grid-cols-[1.25fr_0.75fr]">
+
+            {/* Extracted information */}
+            <div className="space-y-5">
+
+              {/* File card */}
+              <div className="flex items-center gap-4 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.045] p-5">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-400/10 text-emerald-300">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className="h-6 w-6">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+                    <path d="M14 2v6h6m-11 4 2 2 4-4" />
+                  </svg>
                 </div>
-                {/* Projects */}
-                <div>
-                  <div className="text-[10px] tracking-widest text-zinc-500 uppercase font-semibold mb-1">
-                    Projects
-                  </div>
-                  <div className="flex flex-col gap-1 text-sm text-zinc-300">
-                    {JSON.parse(localStorage.getItem("interview_context") ?? "{}").projects?.map((proj: string, idx: number) => (
-                      <span key={idx}>• {proj}</span>
-                    ))}
-                  </div>
-                </div>
-                {/* Education */}
-                <div>
-                  <div className="text-[10px] tracking-widest text-zinc-500 uppercase font-semibold mb-1">
-                    Education
-                  </div>
-                  <div className="flex flex-col gap-1 text-sm text-zinc-300">
-                    {JSON.parse(localStorage.getItem("interview_context") ?? "{}").education?.map((edu: string, idx: number) => (
-                      <span key={idx}>• {edu}</span>
-                    ))}
-                  </div>
-                </div>
-                {/* Experience summary */}
-                <div>
-                  <div className="text-[10px] tracking-widest text-zinc-500 uppercase font-semibold mb-1">
-                    Experience Summary
-                  </div>
-                  <p className="text-sm text-zinc-300">
-                    {JSON.parse(localStorage.getItem("interview_context") ?? "{}").experienceYears
-                      ? `Found ${JSON.parse(localStorage.getItem("interview_context") ?? "{}").experienceYears}+ years of relevant experience.`
-                      : "Experience duration not detected."}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-white">{file.name}</p>
+                  <p className="mt-1 text-xs text-zinc-400">
+                    {(file.size / (1024 * 1024)).toFixed(2)} MB · Successfully analyzed
                   </p>
                 </div>
+                <span className="shrink-0 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-300">
+                  Parsed
+                </span>
+                <button
+                  type="button"
+                  onClick={removeFile}
+                  aria-label="Remove uploaded resume"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-red-400/10 hover:text-red-400"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+                    <path d="M3 6h18m-2 0-.9 14H5.9L5 6m4 0V4h6v2m-5 4v6m4-6v6" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* AI results */}
+              <div className="rounded-2xl border border-white/[0.08] bg-[#111820] p-6 sm:p-7">
+                <div className="mb-7 flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-400/15 bg-cyan-400/[0.08] text-cyan-300">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="h-5 w-5">
+                      <path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z" />
+                      <path d="m19 16 .8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8L19 16Z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 className="text-base font-bold text-white">Resume insights</h2>
+                    <p className="mt-1 text-xs text-zinc-500">Information extracted from your document</p>
+                  </div>
+                </div>
+
+                {(() => {
+                  const ctx = JSON.parse(localStorage.getItem("interview_context") ?? "{}");
+                  const sections = [
+                    {
+                      title: "Candidate",
+                      content: ctx.name,
+                    },
+                    {
+                      title: "Skills detected",
+                      content: ctx.skills,
+                      isArray: true,
+                    },
+                    {
+                      title: "Projects",
+                      content: ctx.projects,
+                      isArray: true,
+                    },
+                    {
+                      title: "Education",
+                      content: ctx.education,
+                      isArray: true,
+                    },
+                    {
+                      title: "Experience",
+                      content: ctx.experienceYears
+                        ? `Found ${ctx.experienceYears}+ years of relevant experience.`
+                        : "Experience duration not detected.",
+                    },
+                  ];
+
+                  return (
+                    <div className="space-y-6">
+                      {sections.map((section) => {
+                        const hasContent = section.isArray
+                          ? Array.isArray(section.content) && section.content.length > 0
+                          : Boolean(section.content);
+
+                        return (
+                          <div key={section.title}>
+                            <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-500">
+                              {section.title}
+                            </p>
+                            {hasContent && section.isArray ? (
+                              <div className="flex flex-wrap gap-2">
+                                {section.content.map((item: string, index: number) => (
+                                  <span
+                                    key={`${item}-${index}`}
+                                    className="rounded-lg border border-cyan-400/15 bg-cyan-400/[0.06] px-3 py-1.5 text-xs text-cyan-200"
+                                  >
+                                    {item}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-sm leading-6 text-zinc-300">
+                                {hasContent ? section.content : "Not detected"}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
-          </div>
 
-          {/* Right side – continue button */}
-          <div className="flex-1 flex flex-col justify-center">
-            <div className="bg-zinc-900/30 border border-white/5 rounded-xl p-8 text-center h-full flex flex-col justify-center items-center">
-              <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 mb-6">
-                <span className="material-symbols-outlined text-3xl">check_circle</span>
+            {/* Continue panel */}
+            <div className="flex flex-col justify-center rounded-2xl border border-cyan-400/15 bg-[#111820] p-7 text-center sm:p-9">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.08] text-emerald-300">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-8 w-8">
+                  <path d="m5 12 4 4L19 6" />
+                </svg>
               </div>
-              <h3 className="text-xl font-bold mb-2">Ready to Go!</h3>
-              <p className="text-sm text-zinc-400 mb-8 max-w-sm">
-                We've tailored your interview path based on your uploaded resume.
+              <h2 className="mt-6 text-2xl font-bold text-white">
+                You're all set!
+              </h2>
+              <p className="mt-3 text-sm leading-7 text-zinc-400">
+                Your resume has been analyzed. Next, choose the role you want
+                to prepare for and build your personalized interview.
               </p>
+
               <button
+                type="button"
                 onClick={handleContinue}
-                className="w-full bg-cyan-400 hover:bg-cyan-300 text-cyan-950 font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-[0_0_20px_rgba(0,229,255,0.2)]"
+                className="group mt-8 flex w-full items-center justify-center gap-3 rounded-xl bg-cyan-400 px-5 py-4 text-sm font-bold text-[#071017] shadow-[0_0_25px_rgba(0,212,255,0.12)] transition-all hover:-translate-y-0.5 hover:bg-cyan-300"
               >
-                Continue to Role Selection
-                <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
+                Continue to role selection
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 transition-transform group-hover:translate-x-1">
+                  <path d="M5 12h14m-7-7 7 7-7 7" />
+                </svg>
               </button>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+
+        {/* Privacy note */}
+        {status !== "complete" && (
+          <div className="mt-7 flex items-center justify-center gap-2 text-center">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="h-4 w-4 shrink-0 text-zinc-600">
+              <rect x="3" y="11" width="18" height="11" rx="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+            <p className="text-[11px] text-zinc-600">
+              Your resume is used to personalize your interview preparation.
+            </p>
+          </div>
+        )}
+      </div>
+    </main>
   );
 }
