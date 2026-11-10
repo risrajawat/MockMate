@@ -7,7 +7,13 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { randomUUID } from 'node:crypto';
 
-import ffmpegPath from 'ffmpeg-static';
+const ffmpegExecutable = path.join(
+  process.cwd(),
+  'node_modules',
+  '@ffmpeg-installer',
+  'linux-x64',
+  'ffmpeg'
+);
 
 export const runtime = 'nodejs';
 
@@ -15,19 +21,6 @@ const execFileAsync = promisify(execFile);
 
 const MAX_AUDIO_DURATION = 30;
 const FETCH_TIMEOUT = 60000;
-
-function requireBinaryPath(
-  binaryPath: string | null,
-  binaryName: string
-): string {
-  if (!binaryPath) {
-    throw new Error(`${binaryName} binary path is unavailable`);
-  }
-
-  return binaryPath;
-}
-
-const ffmpegExecutable = requireBinaryPath(ffmpegPath, 'FFmpeg');
 
 function getErrorDetails(error: unknown): {
   name?: string;

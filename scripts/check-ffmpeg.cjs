@@ -1,16 +1,23 @@
 
 const fs = require('node:fs');
+const path = require('node:path');
 
-const ffmpegPath = require('ffmpeg-static');
+const ffmpegPath = path.join(
+  process.cwd(),
+  'node_modules',
+  '@ffmpeg-installer',
+  'linux-x64',
+  'ffmpeg'
+);
 
-let result = {
+const result = {
   platform: process.platform,
   architecture: process.arch,
   path: ffmpegPath,
-  exists: false,
+  exists: fs.existsSync(ffmpegPath),
 };
 
-if (ffmpegPath && fs.existsSync(ffmpegPath)) {
+if (result.exists) {
   const stats = fs.statSync(ffmpegPath);
   const fd = fs.openSync(ffmpegPath, 'r');
 
@@ -18,13 +25,11 @@ if (ffmpegPath && fs.existsSync(ffmpegPath)) {
     const header = Buffer.alloc(4);
     fs.readSync(fd, header, 0, 4, 0);
 
-    result = {
-      ...result,
-      exists: true,
+    Object.assign(result, {
       size: stats.size,
       executable: Boolean(stats.mode & 0o111),
       fileHeader: header.toString('hex'),
-    };
+    });
   } finally {
     fs.closeSync(fd);
   }
@@ -36,6 +41,11 @@ console.log(
 );
 
 if (!result.exists) {
-  console.error('FFmpeg binary missing during Vercel build');
+  console.error('Linux FFmpeg binary missing during build');
+  process.exit(1);
+}
+
+if (result.fileHeader !== '7f454c46') {
+  console.error('FFmpeg binary is not an ELF Linux executable');
   process.exit(1);
 }

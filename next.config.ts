@@ -16,10 +16,10 @@ const nextConfig: NextConfig = {
   },
 
   outputFileTracingIncludes: {
-    "/api/voice/transcribe": [
-      "./node_modules/ffmpeg-static/ffmpeg",
-    ],
-  },
+  "/api/voice/transcribe": [
+    "./node_modules/@ffmpeg-installer/linux-x64/ffmpeg",
+  ],
+},
 };
 
 export default nextConfig;
