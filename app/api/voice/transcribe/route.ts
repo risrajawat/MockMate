@@ -8,7 +8,13 @@ import { promisify } from 'node:util';
 import { randomUUID } from 'node:crypto';
 
 import ffmpegPath from 'ffmpeg-static';
-import { path as ffprobePath } from 'ffprobe-static';
+
+export const runtime = 'nodejs';
+
+const execFileAsync = promisify(execFile);
+
+const MAX_AUDIO_DURATION = 30;
+const FETCH_TIMEOUT = 60000;
 
 function requireBinaryPath(
   binaryPath: string | null,
@@ -22,14 +28,6 @@ function requireBinaryPath(
 }
 
 const ffmpegExecutable = requireBinaryPath(ffmpegPath, 'FFmpeg');
-const ffprobeExecutable = requireBinaryPath(ffprobePath, 'FFprobe');
-
-export const runtime = 'nodejs';
-
-const execFileAsync = promisify(execFile);
-
-const MAX_AUDIO_DURATION = 30;
-const FETCH_TIMEOUT = 60000;
 
 function getErrorDetails(error: unknown): {
   name?: string;
@@ -59,7 +57,10 @@ async function fetchWithTimeout(
 ): Promise<Response> {
   for (let attempt = 0; attempt <= retries; attempt++) {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    const timeoutId = setTimeout(
+      () => controller.abort(),
+      timeoutMs
+    );
 
     try {
       return await fetch(url, {
@@ -76,8 +77,7 @@ async function fetchWithTimeout(
 
       if (attempt < retries && transient) {
         console.warn(
-          `Transient fetch error (${details.message}), retry ${attempt + 1
-          }/${retries}`
+          `Transient fetch error: ${details.message}. Retry ${attempt + 1}/${retries}`
         );
         continue;
       }
@@ -96,7 +96,7 @@ export async function POST(req: Request) {
   let wavPath: string | null = null;
 
   try {
-    // 1. Parse incoming multipart form
+    // 1. Parse uploaded audio
     const form = await req.formData();
     const audio = form.get('audio');
 
@@ -107,7 +107,14 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2. Validate API key
+    if (audio.size === 0) {
+      return NextResponse.json(
+        { error: 'Audio recording is empty' },
+        { status: 400 }
+      );
+    }
+
+    // 2. Validate Gnani API key
     const apiKey = process.env.GNANI_API_KEY;
 
     if (!apiKey) {
@@ -117,20 +124,28 @@ export async function POST(req: Request) {
       );
     }
 
-    // 3. Create temporary directory and save uploaded audio
+    // 3. Create temporary directory
     const tmpDir = path.join(os.tmpdir(), 'mockmate-audio');
 
     await fs.mkdir(tmpDir, { recursive: true });
 
     const fileId = randomUUID();
-    const extension = path.extname(audio.name).toLowerCase() || '.webm';
+    const extension =
+      path.extname(audio.name).toLowerCase() || '.webm';
 
-    originalPath = path.join(tmpDir, `${fileId}${extension}`);
+    originalPath = path.join(
+      tmpDir,
+      `${fileId}${extension}`
+    );
 
     const arrayBuffer = await audio.arrayBuffer();
-    await fs.writeFile(originalPath, Buffer.from(arrayBuffer));
 
-    // 4. Convert audio to WAV if necessary
+    await fs.writeFile(
+      originalPath,
+      Buffer.from(arrayBuffer)
+    );
+
+    // 4. Convert audio to WAV when necessary
     wavPath = originalPath;
 
     if (extension !== '.wav') {
@@ -151,82 +166,34 @@ export async function POST(req: Request) {
         ]);
       } catch (error: unknown) {
         const details = getErrorDetails(error);
+
         console.error('FFmpeg conversion error:', details);
-        throw new Error(`Audio conversion failed: ${details.message}`);
+
+        throw new Error(
+          `Audio conversion failed: ${details.message}`
+        );
       }
     }
 
-    // 5. Validate audio duration using bundled FFprobe
-    let durationStr: string;
-
-    try {
-      const result = await execFileAsync(ffprobeExecutable, [
-        '-v',
-        'error',
-        '-show_entries',
-        'format=duration',
-        '-of',
-        'default=noprint_wrappers=1:nokey=1',
-        wavPath,
-      ]);
-
-      durationStr = result.stdout.trim();
-    } catch (error: unknown) {
-      const details = getErrorDetails(error);
-
-      console.error('FFprobe error:', details);
-
-      throw new Error(
-        `Audio duration validation failed: ${details.message}`
-      );
-    }
-
-    const durationSec = Number.parseFloat(durationStr);
-
-    if (!Number.isFinite(durationSec)) {
-      return NextResponse.json(
-        { error: 'Unable to determine audio duration' },
-        { status: 400 }
-      );
-    }
-
-    if (durationSec <= 0) {
-      return NextResponse.json(
-        { error: 'Audio recording is empty or invalid' },
-        { status: 400 }
-      );
-    }
-
-    if (durationSec > MAX_AUDIO_DURATION) {
-      return NextResponse.json(
-        {
-          error: 'Audio duration exceeds 30 seconds limit',
-          max_seconds: MAX_AUDIO_DURATION,
-          actual_seconds: durationSec,
-        },
-        { status: 400 }
-      );
-    }
-
-    // 6. Prepare Gnani Prisma request
-    const gnaniUrl = 'https://api.vachana.ai/stt/v3';
-
-    const formData = new FormData();
-
+    // 5. Read converted WAV audio
     const fileBuffer = await fs.readFile(wavPath);
+
     const audioFile = new File(
       [new Uint8Array(fileBuffer)],
       'audio.wav',
       { type: 'audio/wav' }
     );
 
+    // 6. Prepare Gnani Prisma request
+    const formData = new FormData();
+
     formData.append('audio_file', audioFile);
     formData.append('model', 'prisma-v3.0');
     formData.append('language_code', 'indic-auto');
 
-    // 7. Send audio to Gnani with timeout and retries
+    // 7. Send audio to Gnani
     const gnaniRes = await fetchWithTimeout(
-      gnaniUrl,
+      'https://api.vachana.ai/stt/v3',
       {
         method: 'POST',
         headers: {
@@ -242,7 +209,10 @@ export async function POST(req: Request) {
     if (!gnaniRes.ok) {
       const errorText = await gnaniRes.text();
 
-      console.error('Gnani Prisma error response:', errorText);
+      console.error(
+        'Gnani Prisma error response:',
+        errorText
+      );
 
       return NextResponse.json(
         {
@@ -253,17 +223,29 @@ export async function POST(req: Request) {
       );
     }
 
-    // 9. Parse Gnani response safely
+    // 9. Parse Gnani response
     const responseData: unknown = await gnaniRes.json();
 
     if (
       typeof responseData !== 'object' ||
       responseData === null
     ) {
-      throw new Error('Invalid response received from Gnani');
+      throw new Error(
+        'Invalid response received from Gnani'
+      );
     }
 
-    const gnaniJson = responseData as Record<string, unknown>;
+    const gnaniJson =
+      responseData as Record<string, unknown>;
+
+    if (
+      typeof gnaniJson.transcript !== 'string' ||
+      !gnaniJson.transcript.trim()
+    ) {
+      throw new Error(
+        'Gnani returned an empty transcript'
+      );
+    }
 
     return NextResponse.json({
       transcript: gnaniJson.transcript,
@@ -271,6 +253,7 @@ export async function POST(req: Request) {
       model: gnaniJson.model,
       request_id: gnaniJson.request_id,
     });
+
   } catch (error: unknown) {
     const details = getErrorDetails(error);
 
@@ -283,14 +266,15 @@ export async function POST(req: Request) {
       },
       { status: 500 }
     );
+
   } finally {
-    // 10. Always clean up temporary audio files
+    // 10. Clean up temporary audio files
     if (originalPath) {
-      await fs.unlink(originalPath).catch(() => { });
+      await fs.unlink(originalPath).catch(() => {});
     }
 
     if (wavPath && wavPath !== originalPath) {
-      await fs.unlink(wavPath).catch(() => { });
+      await fs.unlink(wavPath).catch(() => {});
     }
   }
 }

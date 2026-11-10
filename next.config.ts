@@ -2,12 +2,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Turbopack configuration
   turbopack: {
     root: process.cwd(),
   },
 
-  // Allow external profile images from Google
   images: {
     remotePatterns: [
       {
@@ -17,11 +15,9 @@ const nextConfig: NextConfig = {
     ],
   },
 
-  // Include FFmpeg and FFprobe binaries in the serverless function
   outputFileTracingIncludes: {
     "/api/voice/transcribe": [
-      "./node_modules/ffmpeg-static/**/*",
-      "./node_modules/ffprobe-static/**/*",
+      "./node_modules/ffmpeg-static/ffmpeg",
     ],
   },
 };

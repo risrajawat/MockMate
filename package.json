@@ -11,7 +11,6 @@
   "dependencies": {
     "classnames": "^2.5.1",
     "ffmpeg-static": "^5.3.0",
-    "ffprobe-static": "^3.1.0",
     "mammoth": "^1.13.0",
     "next": "16.2.4",
     "pdfjs-dist": "^4.10.38",
@@ -20,7 +19,6 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/ffprobe-static": "^2.0.3",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
