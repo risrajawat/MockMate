@@ -9,7 +9,7 @@ export default function Home() {
   return (
     <>
       <Navbar />
-      <main className="pt-24">
+      <main>
         <Hero />
         <Features />
         <HowItWorks />

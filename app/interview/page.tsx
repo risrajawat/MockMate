@@ -76,20 +76,20 @@ function parseInterviewContext(
 
       skills: Array.isArray(value.skills)
         ? value.skills.filter(
-            (skill): skill is string => typeof skill === "string"
-          )
+          (skill): skill is string => typeof skill === "string"
+        )
         : [],
 
       projects: Array.isArray(value.projects)
         ? value.projects.filter(
-            (project): project is string => typeof project === "string"
-          )
+          (project): project is string => typeof project === "string"
+        )
         : [],
 
       education: Array.isArray(value.education)
         ? value.education.filter(
-            (item): item is string => typeof item === "string"
-          )
+          (item): item is string => typeof item === "string"
+        )
         : [],
 
       experienceYears:
@@ -169,7 +169,7 @@ export default function InterviewSession() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
-  const [remainingTime, setRemainingTime] = useState(0);
+  const [elapsedTime, setElapsedTime] = useState(0);
   const [transcript, setTranscript] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -183,9 +183,6 @@ export default function InterviewSession() {
 
   const recordingIntervalRef =
     useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const autoStopTimeoutRef =
-    useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Read interview context from localStorage safely.
   const savedContextJson = useSyncExternalStore(
@@ -205,11 +202,6 @@ export default function InterviewSession() {
       clearInterval(recordingIntervalRef.current);
       recordingIntervalRef.current = null;
     }
-
-    if (autoStopTimeoutRef.current) {
-      clearTimeout(autoStopTimeoutRef.current);
-      autoStopTimeoutRef.current = null;
-    }
   };
 
   // Release microphone resources.
@@ -225,11 +217,6 @@ export default function InterviewSession() {
       if (recordingIntervalRef.current) {
         clearInterval(recordingIntervalRef.current);
         recordingIntervalRef.current = null;
-      }
-
-      if (autoStopTimeoutRef.current) {
-        clearTimeout(autoStopTimeoutRef.current);
-        autoStopTimeoutRef.current = null;
       }
 
       const recorder = mediaRecorderRef.current;
@@ -290,7 +277,7 @@ export default function InterviewSession() {
 
         stopMicrophone();
 
-        setRemainingTime(0);
+        setElapsedTime(0);
         setIsListening(false);
         setIsTranscribing(true);
         setErrorMessage(null);
@@ -355,18 +342,12 @@ export default function InterviewSession() {
 
       setIsListening(true);
 
-      const maxSeconds = 25;
-      setRemainingTime(maxSeconds);
+      // Start an elapsed-time counter. No automatic recording timeout.
+      setElapsedTime(0);
 
       recordingIntervalRef.current = setInterval(() => {
-        setRemainingTime((previous) =>
-          previous <= 1 ? 0 : previous - 1
-        );
+        setElapsedTime((previous) => previous + 1);
       }, 1000);
-
-      autoStopTimeoutRef.current = setTimeout(() => {
-        stopRecording();
-      }, maxSeconds * 1000);
     } catch (error: unknown) {
       console.error("Microphone recording error:", error);
 
@@ -376,7 +357,7 @@ export default function InterviewSession() {
       clearRecordingTimers();
 
       setIsListening(false);
-      setRemainingTime(0);
+      setElapsedTime(0);
 
       setErrorMessage(
         error instanceof Error
@@ -709,7 +690,7 @@ export default function InterviewSession() {
                 </div>
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-zinc-400">
                   <UiIcon name="clock" className="h-4 w-4 text-cyan-400" />
-                  <span>Recording limit: 25 seconds</span>
+                  <span>No time limit</span>
                 </div>
               </div>
 
@@ -783,12 +764,15 @@ export default function InterviewSession() {
 
                 {isListening && (
                   <div className="mt-4 w-full rounded-xl border border-rose-400/20 bg-rose-400/[0.06] p-3">
-                    <div className="mb-2 flex items-center justify-between text-xs">
-                      <span className="font-medium text-rose-300">Recording</span>
-                      <span className="font-mono font-semibold tabular-nums text-white">00:{String(remainingTime).padStart(2, "0")}</span>
-                    </div>
-                    <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
-                      <div className="h-full rounded-full bg-rose-400 transition-all duration-1000" style={{ width: `${Math.max(0, (remainingTime / 25) * 100)}%` }} />
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-medium text-rose-300">
+                        Recording in progress
+                      </span>
+
+                      <span className="font-mono font-semibold tabular-nums text-white">
+                        {String(Math.floor(elapsedTime / 60)).padStart(2, "0")}:
+                        {String(elapsedTime % 60).padStart(2, "0")}
+                      </span>
                     </div>
                   </div>
                 )}
@@ -808,7 +792,7 @@ export default function InterviewSession() {
                 )}
               </div>
               <div className="mt-5 border-t border-white/[0.07] pt-4 text-center text-[11px] leading-5 text-zinc-600">
-                Your recording stops automatically after 25 seconds. You can also tap the microphone to stop earlier.
+                Take your time answering. Tap the microphone when you're finished.
               </div>
             </aside>
           </section>
