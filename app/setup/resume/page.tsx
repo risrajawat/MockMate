@@ -173,32 +173,45 @@ async function extractPdfText(file: File): Promise<string> {
     const page = await pdf.getPage(pageNumber);
     const content = await page.getTextContent();
 
-    const items = content.items
-      .filter(
-        (item): item is typeof item & {
-          str: string;
-          transform: number[];
-          width: number;
-        } =>
-          "str" in item &&
-          typeof item.str === "string" &&
-          "transform" in item &&
-          Array.isArray(item.transform)
-      )
-      .map((item) => ({
-        text: item.str.trim(),
-        x: item.transform[4],
-        y: item.transform[5],
-        width: item.width ?? 0,
-      }))
-      .filter((item) => item.text.length > 0)
-      .sort((a, b) => {
-        // PDF coordinates start at the bottom, so higher y comes first.
-        if (Math.abs(b.y - a.y) > 3) {
-          return b.y - a.y;
-        }
-        return a.x - b.x;
-      });
+
+
+type PdfTextItem = {
+  str: string;
+  transform: number[];
+  width?: number;
+};
+
+// Explicitly tell TypeScript that the original items are unknown.
+const rawItems: unknown[] = content.items;
+
+const items = rawItems
+  .filter((item): item is PdfTextItem => {
+    if (!item || typeof item !== "object") return false;
+
+    const candidate = item as Record<string, unknown>;
+
+    return (
+      typeof candidate.str === "string" &&
+      Array.isArray(candidate.transform) &&
+      typeof candidate.transform[4] === "number" &&
+      typeof candidate.transform[5] === "number" &&
+      (candidate.width === undefined ||
+        typeof candidate.width === "number")
+    );
+  })
+  .map((item: PdfTextItem) => ({
+    text: item.str.trim(),
+    x: item.transform[4],
+    y: item.transform[5],
+    width: item.width ?? 0,
+  }))
+  .filter((item) => item.text.length > 0)
+  .sort((a, b) => {
+    if (Math.abs(b.y - a.y) > 3) {
+      return b.y - a.y;
+    }
+    return a.x - b.x;
+  });
 
     const rows: typeof items[] = [];
 
