@@ -5,6 +5,7 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { randomUUID } from 'node:crypto';
+import os from 'node:os';
 
 export const runtime = 'nodejs';
 
@@ -100,7 +101,9 @@ export async function POST(req: Request) {
     }
 
     // 3. Create temporary directory and save uploaded audio
-    const tmpDir = path.join(process.cwd(), 'tmp');
+    // 3. Create temporary directory and save uploaded audio
+    const tmpDir = path.join(os.tmpdir(), 'mockmate-audio');
+
     await fs.mkdir(tmpDir, { recursive: true });
 
     const fileId = randomUUID();
