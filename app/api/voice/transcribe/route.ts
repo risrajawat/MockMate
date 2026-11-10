@@ -2,10 +2,27 @@
 import { NextResponse } from 'next/server';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { randomUUID } from 'node:crypto';
-import os from 'node:os';
+
+import ffmpegPath from 'ffmpeg-static';
+import { path as ffprobePath } from 'ffprobe-static';
+
+function requireBinaryPath(
+  binaryPath: string | null,
+  binaryName: string
+): string {
+  if (!binaryPath) {
+    throw new Error(`${binaryName} binary path is unavailable`);
+  }
+
+  return binaryPath;
+}
+
+const ffmpegExecutable = requireBinaryPath(ffmpegPath, 'FFmpeg');
+const ffprobeExecutable = requireBinaryPath(ffprobePath, 'FFprobe');
 
 export const runtime = 'nodejs';
 
@@ -101,7 +118,6 @@ export async function POST(req: Request) {
     }
 
     // 3. Create temporary directory and save uploaded audio
-    // 3. Create temporary directory and save uploaded audio
     const tmpDir = path.join(os.tmpdir(), 'mockmate-audio');
 
     await fs.mkdir(tmpDir, { recursive: true });
@@ -121,7 +137,7 @@ export async function POST(req: Request) {
       wavPath = path.join(tmpDir, `${fileId}.wav`);
 
       try {
-        await execFileAsync('ffmpeg', [
+        await execFileAsync(ffmpegExecutable, [
           '-y',
           '-i',
           originalPath,
@@ -135,18 +151,16 @@ export async function POST(req: Request) {
         ]);
       } catch (error: unknown) {
         const details = getErrorDetails(error);
-
-        console.error('FFmpeg conversion error:', details.message);
-
+        console.error('FFmpeg conversion error:', details);
         throw new Error(`Audio conversion failed: ${details.message}`);
       }
     }
 
-    // 5. Validate audio duration using ffprobe
+    // 5. Validate audio duration using bundled FFprobe
     let durationStr: string;
 
     try {
-      const result = await execFileAsync('ffprobe', [
+      const result = await execFileAsync(ffprobeExecutable, [
         '-v',
         'error',
         '-show_entries',
@@ -160,9 +174,11 @@ export async function POST(req: Request) {
     } catch (error: unknown) {
       const details = getErrorDetails(error);
 
-      console.error('ffprobe error:', details.message);
+      console.error('FFprobe error:', details);
 
-      throw new Error(`Audio duration validation failed: ${details.message}`);
+      throw new Error(
+        `Audio duration validation failed: ${details.message}`
+      );
     }
 
     const durationSec = Number.parseFloat(durationStr);
@@ -170,6 +186,13 @@ export async function POST(req: Request) {
     if (!Number.isFinite(durationSec)) {
       return NextResponse.json(
         { error: 'Unable to determine audio duration' },
+        { status: 400 }
+      );
+    }
+
+    if (durationSec <= 0) {
+      return NextResponse.json(
+        { error: 'Audio recording is empty or invalid' },
         { status: 400 }
       );
     }
