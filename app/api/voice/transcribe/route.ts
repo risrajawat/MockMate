@@ -49,6 +49,40 @@ function getErrorDetails(error: unknown): {
   };
 }
 
+
+async function getFfmpegDiagnostics() {
+  try {
+    const stats = await fs.stat(ffmpegExecutable);
+    const handle = await fs.open(ffmpegExecutable, 'r');
+
+    try {
+      const header = Buffer.alloc(4);
+      await handle.read(header, 0, 4, 0);
+
+      return {
+        platform: process.platform,
+        architecture: process.arch,
+        executablePath: ffmpegExecutable,
+        exists: true,
+        size: stats.size,
+        executable: Boolean(stats.mode & 0o111),
+        fileHeader: header.toString('hex'),
+      };
+    } finally {
+      await handle.close();
+    }
+  } catch (error) {
+    return {
+      platform: process.platform,
+      architecture: process.arch,
+      executablePath: ffmpegExecutable,
+      exists: false,
+      error: getErrorDetails(error),
+    };
+  }
+}
+
+
 async function fetchWithTimeout(
   url: string,
   options: RequestInit,
@@ -146,34 +180,45 @@ export async function POST(req: Request) {
     );
 
     // 4. Convert audio to WAV when necessary
-    wavPath = originalPath;
+wavPath = originalPath;
 
-    if (extension !== '.wav') {
-      wavPath = path.join(tmpDir, `${fileId}.wav`);
+if (extension !== '.wav') {
+  wavPath = path.join(tmpDir, `${fileId}.wav`);
 
-      try {
-        await execFileAsync(ffmpegExecutable, [
-          '-y',
-          '-i',
-          originalPath,
-          '-ar',
-          '16000',
-          '-ac',
-          '1',
-          '-c:a',
-          'pcm_s16le',
-          wavPath,
-        ]);
-      } catch (error: unknown) {
-        const details = getErrorDetails(error);
+  const diagnostics = await getFfmpegDiagnostics();
 
-        console.error('FFmpeg conversion error:', details);
+  console.log(
+    '[FFMPEG_RUNTIME_DIAGNOSTICS]',
+    JSON.stringify(diagnostics)
+  );
 
-        throw new Error(
-          `Audio conversion failed: ${details.message}`
-        );
-      }
-    }
+  if (!diagnostics.exists) {
+    throw new Error('FFmpeg binary missing in deployed runtime');
+  }
+
+  try {
+    await execFileAsync(ffmpegExecutable, [
+      '-y',
+      '-i',
+      originalPath,
+      '-ar',
+      '16000',
+      '-ac',
+      '1',
+      '-c:a',
+      'pcm_s16le',
+      wavPath,
+    ]);
+  } catch (error: unknown) {
+    const details = getErrorDetails(error);
+    console.error('FFmpeg conversion error:', details);
+
+    throw new Error(
+      `Audio conversion failed: ${details.message}`
+    );
+  }
+}
+    
 
     // 5. Read converted WAV audio
     const fileBuffer = await fs.readFile(wavPath);
